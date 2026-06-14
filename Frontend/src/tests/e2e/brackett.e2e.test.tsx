@@ -556,26 +556,25 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/']);
     expect(screen.getByRole('link', { name: /Why/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Flow/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Pricing/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Preview/i })).toBeInTheDocument();
   });
 
   it('3. Verify Core Product Value Proposition', async () => {
     await renderAppAndWait(['/']);
-    const titleContainer = document.getElementById('hero-main-title');
-    expect(titleContainer?.textContent).toContain('Keep every answer attached to its source.');
+    expect(screen.getByText(/Run your company after launch, not your tabs/i)).toBeInTheDocument();
   });
 
   it('4. Verify Call to Action Buttons', async () => {
     await renderAppAndWait(['/']);
     expect(document.getElementById('hero-cta-primary')).toHaveTextContent('Create workspace');
-    expect(document.getElementById('hero-cta-secondary')).toHaveTextContent('Preview the flow');
+    expect(screen.getAllByRole('button', { name: /Preview the flow/i })[0]).toHaveTextContent('Preview the flow');
   });
 
   it('5. Verify Pricing Section Elements', async () => {
     await renderAppAndWait(['/']);
     // Use role-based queries instead of fragile id lookups for pricing section
-    expect(screen.getByText('Starter workspace')).toBeInTheDocument();
-    expect(screen.getByText('For teams later')).toBeInTheDocument();
+    expect(screen.getByText(/Execution clarity/i)).toBeInTheDocument();
+    expect(screen.getByText(/Early Access Team/i)).toBeInTheDocument();
     const pricingCtaPrimary = screen.getAllByRole('button', { name: /Create workspace/i })
       .find(btn => btn.id === 'pricing-cta-primary') ??
       screen.getAllByRole('button', { name: /Create workspace/i })[0];
@@ -616,7 +615,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('10. CTA trigger modal state', async () => {
     await renderAppAndWait(['/']);
-    const cta = document.getElementById('hero-cta-primary');
+    const cta = screen.getAllByRole('button', { name: /Request access/i })[0];
     fireEvent.click(cta!);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Create your workspace/i })).toBeInTheDocument();
@@ -634,7 +633,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('11. Login Modal Display', async () => {
     await renderAppAndWait(['/']);
-    const signInBtn = document.getElementById('nav-signin-btn');
+    const signInBtn = screen.getByRole('button', { name: /Sign in/i });
     fireEvent.click(signInBtn!);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Welcome back/i })).toBeInTheDocument();
@@ -642,7 +641,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('12. Local Login Success', async () => {
     await renderAppAndWait(['/']);
-    const signInBtn = document.getElementById('nav-signin-btn');
+    const signInBtn = screen.getByRole('button', { name: /Sign in/i });
     fireEvent.click(signInBtn!);
 
     const emailInput = screen.getByLabelText(/Email address/i);
@@ -684,7 +683,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('14. Redirect to Dashboard', async () => {
     await renderAppAndWait(['/']);
-    const signInBtn = document.getElementById('nav-signin-btn');
+    const signInBtn = screen.getByRole('button', { name: /Sign in/i });
     fireEvent.click(signInBtn!);
 
     fireEvent.change(screen.getByLabelText(/Email address/i), { target: { value: 'test@example.com' } });
@@ -706,7 +705,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
       expect(screen.getByText(/Acme Corp/i)).toBeInTheDocument();
     });
 
-    const logoutBtn = screen.getByRole('button', { name: /Sign out/i });
+    const logoutBtn = screen.getAllByRole('button', { name: /Sign out/i })[0];
     fireEvent.click(logoutBtn);
 
     await waitFor(() => {
@@ -719,7 +718,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('16. Incorrect Credentials Message', async () => {
     await renderAppAndWait(['/']);
-    const signInBtn = document.getElementById('nav-signin-btn');
+    const signInBtn = screen.getByRole('button', { name: /Sign in/i });
     fireEvent.click(signInBtn!);
 
     fireEvent.change(screen.getByLabelText(/Email address/i), { target: { value: 'wrong@example.com' } });
@@ -733,7 +732,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('17. Signup Password Too Short', async () => {
     await renderAppAndWait(['/']);
-    fireEvent.click(document.getElementById('hero-cta-primary')!);
+    fireEvent.click(screen.getAllByRole('button', { name: /Request access/i })[0]);
 
     fireEvent.change(screen.getByLabelText(/Your name/i), { target: { value: 'Jane' } });
     fireEvent.change(screen.getByLabelText(/Workspace name/i), { target: { value: 'Workspace' } });
@@ -752,7 +751,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     fetchMock.mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'));
 
     await renderAppAndWait(['/']);
-    fireEvent.click(document.getElementById('nav-signin-btn')!);
+    fireEvent.click(screen.getByRole('button', { name: /Sign in/i }));
 
     fireEvent.change(screen.getByLabelText(/Email address/i), { target: { value: 'test@example.com' } });
     fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: 'password123' } });
@@ -765,7 +764,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('19. Google OAuth Unavailable Fallback', async () => {
     await renderAppAndWait(['/']);
-    fireEvent.click(document.getElementById('nav-signin-btn')!);
+    fireEvent.click(screen.getByRole('button', { name: /Sign in/i }));
 
     expect(screen.getByText('Google sign-in is unavailable right now.')).toBeInTheDocument();
   });
@@ -778,7 +777,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     fetchMock.mockReturnValueOnce(responsePromise);
 
     await renderAppAndWait(['/']);
-    fireEvent.click(document.getElementById('hero-cta-primary')!);
+    fireEvent.click(screen.getAllByRole('button', { name: /Request access/i })[0]);
 
     fireEvent.change(screen.getByLabelText(/Your name/i), { target: { value: 'Jane' } });
     fireEvent.change(screen.getByLabelText(/Workspace name/i), { target: { value: 'Workspace' } });
@@ -816,7 +815,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Context/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
     });
 
     const urlInput = screen.getByLabelText(/Company website/i);
@@ -836,7 +835,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Context/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
     });
 
     const businessName = screen.getByPlaceholderText('Business name');
@@ -871,7 +870,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Context/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
     });
 
     expect(screen.getByText(/Workspace profile active/i)).toBeInTheDocument();
@@ -883,7 +882,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Context/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
     });
 
     expect(screen.getByRole('heading', { name: /Start from the public truth/i })).toBeInTheDocument();
@@ -895,7 +894,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Context/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
     });
 
     const urlInput = screen.getByLabelText(/Company website/i);
@@ -914,7 +913,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Context/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
     });
 
     const submitBtn = screen.getByRole('button', { name: /Save business profile/i });
@@ -930,7 +929,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Context/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
     });
 
     fetchMock.mockImplementationOnce(async (url: string) => {
@@ -969,7 +968,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Context/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
     });
 
     let resolveImport: any;
@@ -1014,7 +1013,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Decisions/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
     });
 
     expect(screen.getByText('Why is standard testing important?')).toBeInTheDocument();
@@ -1025,7 +1024,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Decisions/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
     });
 
     const questionInput = screen.getByPlaceholderText('What needs a clear answer?');
@@ -1048,7 +1047,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Decisions/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
     });
 
     expect(screen.getByText('Should we deploy today?')).toBeInTheDocument();
@@ -1087,7 +1086,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Decisions/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
     });
 
     expect(screen.getByText('Nothing is stuck right now.')).toBeInTheDocument();
@@ -1134,7 +1133,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Sources/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Sources/i })[0]);
     });
 
     expect(screen.getByText('Product Release')).toBeInTheDocument();
@@ -1185,7 +1184,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Decisions/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
     });
 
     await waitFor(() => {
@@ -1223,7 +1222,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   it('43. Signup to Onboarding redirection sequence', async () => {
     await renderAppAndWait(['/']);
 
-    fireEvent.click(document.getElementById('hero-cta-primary')!);
+    fireEvent.click(screen.getAllByRole('button', { name: /Request access/i })[0]);
     fireEvent.change(screen.getByLabelText(/Your name/i), { target: { value: 'Jane' } });
     fireEvent.change(screen.getByLabelText(/Workspace name/i), { target: { value: 'Redirection LLC' } });
     fireEvent.change(screen.getByLabelText(/Email address/i), { target: { value: 'jane@redirection.com' } });
@@ -1254,7 +1253,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     expect(screen.getByRole('link', { name: /brackett/i })).toBeInTheDocument();
 
     // 2. Signup
-    fireEvent.click(document.getElementById('hero-cta-primary')!);
+    fireEvent.click(screen.getAllByRole('button', { name: /Request access/i })[0]);
     fireEvent.change(screen.getByLabelText(/Your name/i), { target: { value: 'Lifecycle User' } });
     fireEvent.change(screen.getByLabelText(/Workspace name/i), { target: { value: 'Lifecycle Corp' } });
     fireEvent.change(screen.getByLabelText(/Email address/i), { target: { value: 'user@lifecycle.com' } });
@@ -1272,7 +1271,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
     // 3. Complete onboarding from scratch
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Context/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
     });
     fireEvent.change(screen.getByPlaceholderText('Business name'), { target: { value: 'Lifecycle Corp' } });
     fireEvent.change(screen.getByPlaceholderText('Industry'), { target: { value: 'AI Testing' } });
@@ -1283,7 +1282,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     });
 
     // 4. Create board
-    fireEvent.click(screen.getByRole('button', { name: /Sources/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /Sources/i })[0]);
     fireEvent.change(screen.getByPlaceholderText('Board name'), { target: { value: 'General' } });
     fireEvent.change(screen.getByPlaceholderText('What work lives here?'), { target: { value: 'Main board description' } });
     fireEvent.click(screen.getByRole('button', { name: /Create board/i }));
@@ -1293,7 +1292,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     });
 
     // 5. Create question
-    fireEvent.click(screen.getByRole('button', { name: /Decisions/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
     fireEvent.change(screen.getByPlaceholderText('What needs a clear answer?'), { target: { value: 'What tool should we use?' } });
     fireEvent.click(screen.getByRole('button', { name: /Capture question/i }));
 
@@ -1310,7 +1309,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     });
 
     // 7. Sign out
-    fireEvent.click(screen.getByRole('button', { name: /Sign out/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /Sign out/i })[0]);
     await waitFor(() => {
       expect(localStorage.getItem('brakett_access_token')).toBeNull();
     });
@@ -1322,7 +1321,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
     // 1. Open Onboarding
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Context/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
     });
 
     // 2. Import website URL
@@ -1336,7 +1335,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     });
 
     // 3. Navigate to Team tab
-    fireEvent.click(screen.getByRole('button', { name: /People/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /People/i })[0]);
 
     // 4. Generate invite link
     const emailInput = screen.getByPlaceholderText('teammate@company.com');
@@ -1361,7 +1360,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
     // 1. Open Analyst Brain tab
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Analyst/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Analyst/i })[0]);
     });
 
     // 2. Submit AI query
@@ -1384,7 +1383,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
     // 1. Open Integrations tab
     await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /Sources/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Sources/i })[0]);
     });
 
     // 2. Connect Slack placeholder integration
