@@ -47,7 +47,7 @@ React.lazy = (ctor: () => Promise<{ default: React.ComponentType<any> }>) => {
       let isMounted = true;
       ctor().then((module) => {
         if (isMounted) {
-          setComponent(() => module.default || module);
+          setComponent(() => module.default);
         }
       });
       return () => {
