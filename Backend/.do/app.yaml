@@ -1,0 +1,71 @@
+name: brackett-api
+region: nyc
+services:
+  - name: api
+    dockerfile_path: Backend/Dockerfile
+    source_dir: /Backend
+    github:
+      repo: your-github-owner/your-brackett-repo
+      branch: main
+      deploy_on_push: true
+    http_port: 4000
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /health
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+      - key: PG_POOL_MAX
+        scope: RUN_TIME
+        value: "10"
+      - key: CLERK_SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: CLERK_WEBHOOK_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: JWT_ACCESS_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: ENCRYPTION_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: READINESS_TOKEN
+        scope: RUN_TIME
+        type: SECRET
+      - key: SENTRY_DSN
+        scope: RUN_TIME
+        type: SECRET
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        scope: RUN_TIME
+        value: "0.05"
+      - key: LOG_LEVEL
+        scope: RUN_TIME
+        value: info
+      - key: LLM_PROVIDER
+        scope: RUN_TIME
+        value: openai
+      - key: LLM_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: LLM_MODEL
+        scope: RUN_TIME
+        value: gpt-4.1-mini
+      - key: APP_URL
+        scope: RUN_TIME
+        value: https://your-domain.example
+      - key: API_URL
+        scope: RUN_TIME
+        value: https://your-api-domain.example
+      - key: CORS_ORIGIN
+        scope: RUN_TIME
+        value: https://your-domain.example
+      - key: DEMO_MODE_WARNING
+        scope: RUN_TIME
+        value: "false"

@@ -1,0 +1,6 @@
+{
+  "name": "Brackett",
+  "description": "A post-launch operating workspace for small startup teams to connect signals, decisions, and execution.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

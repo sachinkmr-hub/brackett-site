@@ -1,0 +1,1 @@
+ALTER TABLE "workspace_integrations" ADD COLUMN "webhook_url_encrypted" text;

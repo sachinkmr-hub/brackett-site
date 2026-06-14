@@ -1,0 +1,76 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1780944783426,
+      "tag": "0000_lovely_moonstone",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781096622351,
+      "tag": "0001_good_frank_castle",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781098615645,
+      "tag": "0002_whole_changeling",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781099135603,
+      "tag": "0003_clumsy_pet_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781102048520,
+      "tag": "0004_sad_winter_soldier",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781103140272,
+      "tag": "0005_good_talkback",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781111898374,
+      "tag": "0006_great_gorgon",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781119000000,
+      "tag": "0007_refresh_token_hash_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781203200000,
+      "tag": "0008_expand_workspace_integrations_provider_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781289600000,
+      "tag": "0009_expand_discussion_metadata",
+      "breakpoints": true
+    }
+  ]
+}

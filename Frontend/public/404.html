@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Opening Brackett</title>
+  </head>
+  <body>
+    <script>
+      (function () {
+        var knownRootRoutes = ["accept-invite", "dashboard"];
+        var segments = window.location.pathname.split("/").filter(Boolean);
+        var basePath = "/";
+
+        if (segments.length > 1 && knownRootRoutes.indexOf(segments[1]) !== -1) {
+          basePath = "/" + segments[0] + "/";
+        }
+
+        var route = window.location.pathname + window.location.search + window.location.hash;
+        if (basePath !== "/" && route.indexOf(basePath) === 0) {
+          route = "/" + route.slice(basePath.length);
+        }
+
+        var target = new URL(basePath, window.location.origin);
+        target.searchParams.set("spa_path", route);
+        window.location.replace(target.toString());
+      })();
+    </script>
+    <noscript>
+      Brackett needs JavaScript enabled to open this page.
+    </noscript>
+  </body>
+</html>
