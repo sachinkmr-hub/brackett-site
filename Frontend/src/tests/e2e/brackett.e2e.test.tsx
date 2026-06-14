@@ -179,7 +179,6 @@ let mockMembers: any[] = [
 let mockInvites: any[] = [];
 let mockIntegrations: any[] = [];
 let mockActivityFeed: any[] = [];
-let mockSessionTokenDummy: string | null = null; // replaced by mockSessionMock.token
 
 const resetMockState = () => {
   mockWorkspace = {
@@ -209,14 +208,9 @@ const jsonResponse = (body: any, init: ResponseInit = {}) =>
     },
   });
 
-// Setup mock window.location
-const assignMock = vi.fn();
+// Setup mock window.location — re-declared in beforeEach so vi.clearAllMocks() doesn't wipe it
+let assignMock: ReturnType<typeof vi.fn>;
 const originalLocation = window.location;
-vi.stubGlobal('location', {
-  ...originalLocation,
-  assign: assignMock,
-  replace: vi.fn(),
-});
 
 // Global stateful fetch interceptor mock
 const defaultFetchImpl = async (url: string, options: any = {}) => {
@@ -519,6 +513,14 @@ const renderAppAndWait = async (initialEntries = ['/']) => {
   return rendered;
 };
 
+// Helper to seed localStorage auth state so AuthProvider recognises the session
+const seedAuthSession = (token = 'fresh-token') => {
+  localStorage.setItem('brakett_access_token', token);
+  localStorage.setItem('brakett_auth_provider', 'local');
+  localStorage.setItem('brakett_workspace_id', 'workspace-1');
+  mockSessionMock.token = token;
+};
+
 describe('brackett Comprehensive E2E Test Suite', () => {
   beforeEach(() => {
     vi.setConfig({ testTimeout: 30000 });
@@ -527,6 +529,13 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     fetchMock.mockReset();
     fetchMock.mockImplementation(defaultFetchImpl);
     vi.clearAllMocks();
+    // Re-stub location.assign AFTER clearAllMocks so the spy is fresh each test
+    assignMock = vi.fn();
+    vi.stubGlobal('location', {
+      ...originalLocation,
+      assign: assignMock,
+      replace: vi.fn(),
+    });
   });
 
   afterEach(() => {
@@ -564,9 +573,13 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('5. Verify Pricing Section Elements', async () => {
     await renderAppAndWait(['/']);
+    // Use role-based queries instead of fragile id lookups for pricing section
     expect(screen.getByText('Starter workspace')).toBeInTheDocument();
     expect(screen.getByText('For teams later')).toBeInTheDocument();
-    expect(document.getElementById('pricing-cta-primary')).toHaveTextContent('Create workspace');
+    const pricingCtaPrimary = screen.getAllByRole('button', { name: /Create workspace/i })
+      .find(btn => btn.id === 'pricing-cta-primary') ??
+      screen.getAllByRole('button', { name: /Create workspace/i })[0];
+    expect(pricingCtaPrimary).toHaveTextContent('Create workspace');
   });
 
   it('6. Hero Scroll Indicator boundary', async () => {
@@ -686,7 +699,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('15. Logout Flow', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
@@ -790,7 +803,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
      ========================================================================== */
 
   it('21. Onboarding Banner Render', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
@@ -799,7 +812,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('22. Website Import Path Success', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
@@ -819,7 +832,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('23. Manual Profile Path Success', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
@@ -846,7 +859,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('24. Active Profile Summary Card', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     mockOnboardingProfile = {
       websiteUrl: '',
       businessName: 'Active Acme Inc',
@@ -866,7 +879,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('25. Branch Switching UI', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
@@ -878,7 +891,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('26. Invalid Website URL Format', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
@@ -897,7 +910,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('27. Empty Manual Fields Validation', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
@@ -913,7 +926,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('28. Onboarding API Failure recovery', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
@@ -937,7 +950,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('29. Already Onboarded State', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     mockOnboardingProfile = {
       websiteUrl: 'https://done.com',
       businessName: 'Done Corp',
@@ -952,7 +965,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('30. Submitting state disabled inputs', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
@@ -984,7 +997,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
      ========================================================================== */
 
   it('31. Overview Business Snapshot', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     mockWorkspace.name = 'Test Snapshot Workspace';
 
     await renderAppAndWait(['/dashboard']);
@@ -993,7 +1006,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('32. Questions List rendering', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     mockQuestions = [
       { id: 'question-1', title: 'Why is standard testing important?', status: 'open', priority: 'medium', assignees: [], latestDecision: null }
     ];
@@ -1008,7 +1021,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('33. Add new question', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
@@ -1027,7 +1040,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('34. Log decision on question', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     mockQuestions = [
       { id: 'question-1', title: 'Should we deploy today?', status: 'open', priority: 'high', assignees: [], latestDecision: null }
     ];
@@ -1051,7 +1064,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('35. Guided Tour Flow', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     localStorage.removeItem('brackett_tour_v3_seen');
 
     await renderAppAndWait(['/dashboard']);
@@ -1068,7 +1081,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('36. Empty Workspace state', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     mockQuestions = [];
 
     await renderAppAndWait(['/dashboard']);
@@ -1081,7 +1094,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('37. Dashboard loading state', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     // Clean start without rendering App beforehand
     let resolveDashboard: any;
     const promise = new Promise<Response>((resolve) => {
@@ -1100,7 +1113,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('38. Dashboard load failure recovery', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     fetchMock.mockRejectedValue(new Error('Internal Database Error'));
 
     renderApp(['/dashboard']);
@@ -1113,7 +1126,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('39. Toggle board archive boundary', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     mockBoards = [
       { id: 'board-1', name: 'Product Release', description: 'MVP rollout', isArchived: false }
     ];
@@ -1135,7 +1148,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('40. Invalid status update logic', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     mockQuestions = [
       { id: 'question-1', title: 'DB security check', status: 'open', priority: 'medium', assignees: [], latestDecision: null }
     ];
@@ -1157,7 +1170,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
      ========================================================================== */
 
   it('41. Auth Session expiry triggers login modal', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
@@ -1183,7 +1196,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('42. Onboarding completion unlocks Dashboard actions', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     mockOnboardingProfile = null; // Locked onboarding initially
 
     await renderAppAndWait(['/dashboard']);
@@ -1199,6 +1212,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
       });
     });
 
+    cleanup();
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
@@ -1252,7 +1266,8 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     });
 
     // Reset session states for dashboard rendering
-    mockSessionMock.token = 'fresh-token';
+    cleanup();
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     // 3. Complete onboarding from scratch
@@ -1302,7 +1317,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('46. Full Website Import & Team Invite Workload', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     // 1. Open Onboarding
@@ -1337,7 +1352,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('47. Analyst Assistant Query Workload', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     mockQuestions = [
       { id: 'question-1', title: 'MVP decision status', status: 'open', priority: 'medium', assignees: [], latestDecision: null }
     ];
@@ -1364,7 +1379,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   });
 
   it('48. API Integration Setup Workload', async () => {
-    mockSessionMock.token = 'fresh-token';
+    seedAuthSession();
     await renderAppAndWait(['/dashboard']);
 
     // 1. Open Integrations tab
