@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { ArrowRight, CheckCircle2, Globe, Loader2, ShieldCheck, Sparkles, Waves } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDashboard } from '../DashboardContext';
+import { useModal } from '../../../providers/ModalProvider';
 
 export const OnboardingTab: React.FC = () => {
   const { onboardingProfile, submitWebsiteOnboarding, submitScratchOnboarding } = useDashboard();
+  const { showAlert } = useModal();
+  const [activeView, setActiveView] = useState<'selection' | 'website' | 'scratch'>('selection');
   const [websiteUrl, setWebsiteUrl] = useState(onboardingProfile?.websiteUrl || '');
   const [submittingMode, setSubmittingMode] = useState<'website' | 'scratch' | null>(null);
 
@@ -28,6 +31,10 @@ export const OnboardingTab: React.FC = () => {
     event.preventDefault();
     const trimmedUrl = websiteUrl.trim();
     if (!trimmedUrl) return;
+    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+      showAlert('Error', 'Invalid website URL format. Please include http:// or https://');
+      return;
+    }
 
     setSubmittingMode('website');
     try {
@@ -98,7 +105,7 @@ export const OnboardingTab: React.FC = () => {
               value={websiteUrl}
               onChange={(event) => setWebsiteUrl(event.target.value)}
               placeholder="https://your-company.com"
-              type="url"
+              type="text"
               required
               disabled={isBusy}
               className="min-h-[48px] flex-1 rounded-2xl border border-slate-200/80 bg-white/82 px-4 py-3 text-sm text-slate-950 shadow-sm outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-65"
