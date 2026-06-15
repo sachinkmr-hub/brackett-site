@@ -274,7 +274,7 @@ export const DashboardLayout: React.FC = () => {
           </header>
 
           <div ref={contentRef} className="relative flex-1 overflow-y-auto px-4 py-6 sm:px-7">
-            <AnimatePresence mode="wait">
+            <AnimatePresence>
               <motion.div
                 key={activeTab}
                 initial={{ opacity: 0, y: 8 }}

@@ -61,3 +61,4 @@ React.lazy = (ctor: () => Promise<{ default: React.ComponentType<any> }>) => {
     return React.createElement(Component, props);
   } as any;
 };
+import { MotionGlobalConfig } from 'framer-motion'; MotionGlobalConfig.skipAnimations = true;
