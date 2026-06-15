@@ -1,9 +1,7 @@
-import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DashboardLayout } from './DashboardLayout';
-import { ModalProvider } from '../../providers/ModalProvider';
 
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => children,
@@ -83,7 +81,7 @@ vi.mock('../../providers/AuthProvider', () => ({
 
 describe('DashboardLayout', () => {
   it('lands new workspaces in the dashboard with setup as the first action', () => {
-    render(<MemoryRouter><ModalProvider><DashboardLayout /></ModalProvider></MemoryRouter>);
+    render(<DashboardLayout />);
 
     expect(screen.getByRole('heading', { name: /Welcome back, New Workspace/i })).toBeInTheDocument();
     expect(screen.getByText('Suggested first action')).toBeInTheDocument();

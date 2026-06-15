@@ -66,13 +66,11 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
     if (!isAuthenticated) return;
     setIsLoading(true);
     setError(null);
-    console.log('loadDashboard START');
 
     try {
       let workspaceId = localStorage.getItem(LEGACY_WORKSPACE_ID_KEY);
 
       const workspaceList = await apiRequest<Workspace[]>('/workspaces');
-      console.log('workspaceList fetched');
       const activeWorkspace = workspaceList.find((item) => item.id === workspaceId) || workspaceList[0] || null;
 
       if (!activeWorkspace) {
@@ -82,7 +80,6 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
       workspaceId = activeWorkspace.id;
       localStorage.setItem(LEGACY_WORKSPACE_ID_KEY, workspaceId);
 
-      console.log('Promise.all START');
       const [
         workspaceDetails, onboardingData, boardList, questionList,
         analyticsData, memberList, integrationList, catalog,
@@ -96,13 +93,11 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         apiRequest<Integration[]>(`/workspaces/${workspaceId}/integrations`),
         apiRequest<IntegrationCatalogItem[]>(`/workspaces/${workspaceId}/integrations/catalog`),
       ]);
-      console.log('Promise.all DONE');
 
       let workspaceActivity: WorkspaceActivityItem[] = [];
       let inviteList: Invite[] = [];
       try { inviteList = await apiRequest<Invite[]>(`/workspaces/${workspaceId}/invites`); } catch {}
       try { workspaceActivity = await apiRequest<WorkspaceActivityItem[]>(`/workspaces/${workspaceId}/activity`); } catch {}
-      console.log('Secondary fetches DONE');
 
       setWorkspace({ ...workspaceDetails, role: activeWorkspace.role });
       setOnboardingProfile('message' in onboardingData ? null : onboardingData);
@@ -114,13 +109,10 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
       setIntegrationCatalog(catalog);
       setAnalytics(analyticsData);
       setActivityFeed(workspaceActivity);
-      console.log('States SET');
     } catch (loadError: any) {
-      console.log('loadDashboard ERROR', loadError);
       if (loadError.message?.toLowerCase().includes('session is no longer active')) return;
       setError(loadError.message || 'Unable to load the dashboard right now.');
     } finally {
-      console.log('loadDashboard FINALLY');
       setIsLoading(false);
     }
   };
@@ -144,25 +136,21 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
   // --- Handlers ---
   const submitQuestion = async (form: any) => withWorkspace(async (id) => {
     await apiRequest(`/workspaces/${id}/questions`, { method: 'POST', body: JSON.stringify(form) });
-    await loadDashboard();
     showAlert('Success', 'Question added to the workspace.');
   });
 
   const submitDecision = async (questionId: string, form: any) => withWorkspace(async (id) => {
     await apiRequest(`/workspaces/${id}/questions/${questionId}/decision`, { method: 'POST', body: JSON.stringify(form) });
-    await loadDashboard();
     showAlert('Success', 'Official decision logged.');
   });
 
   const createBoard = async (form: any) => withWorkspace(async (id) => {
     await apiRequest(`/workspaces/${id}/boards`, { method: 'POST', body: JSON.stringify(form) });
-    await loadDashboard();
     showAlert('Success', 'Board created.');
   });
 
   const toggleBoardArchive = async (board: Board) => withWorkspace(async (id) => {
     await apiRequest(`/workspaces/${id}/boards/${board.id}`, { method: 'PATCH', body: JSON.stringify({ isArchived: !board.isArchived }) });
-    await loadDashboard();
     showAlert('Success', board.isArchived ? 'Board restored.' : 'Board archived.');
   });
 
@@ -180,25 +168,20 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   const submitWebsiteOnboarding = async (url: string) => withWorkspace(async (id) => {
     await apiRequest(`/workspaces/${id}/onboarding/website`, { method: 'POST', body: JSON.stringify({ url }) });
-    await loadDashboard();
     showAlert('Success', 'Website onboarding refreshed.');
   });
 
   const submitScratchOnboarding = async (form: any) => withWorkspace(async (id) => {
     await apiRequest(`/workspaces/${id}/onboarding/scratch`, { method: 'POST', body: JSON.stringify(form) });
-    await loadDashboard();
     showAlert('Success', 'Business profile saved.');
-    await loadDashboard();
   });
 
   const updateQuestionStatus = async (questionId: string, status: string) => withWorkspace(async (id) => {
     await apiRequest(`/workspaces/${id}/questions/${questionId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-    await loadDashboard();
   });
 
   const autoAssignQuestion = async (questionId: string) => withWorkspace(async (id) => {
     const payload = await apiRequest<AutoAssignResponse>(`/workspaces/${id}/questions/${questionId}/auto-assign`, { method: 'POST', body: JSON.stringify({}) });
-    await loadDashboard();
     showAlert('Assigned', `Assigned ${payload.selectedMember.name} using the workspace load-balancing rule.`);
   });
 
@@ -235,9 +218,8 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
       body: JSON.stringify({
         status: isGoogleAuthReady ? 'ready' : 'setup_required',
         metadata: { setupState: isGoogleAuthReady ? 'linked-through-clerk-auth' : 'waiting-for-provider-credentials' },
-      })
+      }),
     });
-    await loadDashboard();
     showAlert('Success', isGoogleAuthReady ? `${provider} setup saved.` : `${provider} setup checklist saved.`);
   });
 

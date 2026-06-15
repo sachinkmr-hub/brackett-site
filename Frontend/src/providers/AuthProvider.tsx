@@ -59,9 +59,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Migration: move legacy localStorage tokens into memory once, then delete them.
     const storedToken = localStorage.getItem(LEGACY_ACCESS_TOKEN_KEY);
-    console.log('AUTH_DEBUG storedToken:', storedToken);
     if (storedToken) {
-      console.log('AUTH_DEBUG applying token'); applyAccessToken(storedToken);
+      applyAccessToken(storedToken);
       localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
     }
 
@@ -70,7 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         applyAccessToken(null);
       }
     }).catch(() => undefined).finally(() => {
-      console.log('AUTH_DEBUG setting isLoadingSession=false'); if (isMounted) setIsLoadingSession(false);
+      if (isMounted) setIsLoadingSession(false);
     });
 
     return () => {

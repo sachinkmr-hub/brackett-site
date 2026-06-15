@@ -95,13 +95,13 @@ export const Hero: React.FC = () => {
 
           {/* CTAs */}
           <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-center gap-4 mt-10 w-full sm:w-auto">
-            <button id="hero-cta-primary"
+            <button 
               onClick={() => showAuthModal('signup')} 
               className="w-full sm:w-auto px-8 py-4 bg-[#111318] text-white rounded-lg font-medium shadow-sm hover:bg-black transition-all active:scale-[0.98]"
             >
               Request access
             </button>
-            <button id="hero-cta-secondary"
+            <button 
               onClick={() => {
                 const el = document.getElementById('how-it-works-section') || document.getElementById('purpose-section');
                 if (el) el.scrollIntoView({ behavior: 'smooth' });

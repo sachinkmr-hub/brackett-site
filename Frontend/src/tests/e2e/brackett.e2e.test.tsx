@@ -492,16 +492,12 @@ const fetchMock = vi.fn().mockImplementation(defaultFetchImpl);
 
 vi.stubGlobal('fetch', fetchMock);
 
-import { ErrorBoundary as GlobalErrorBoundary } from 'react-error-boundary';
-
 const renderApp = (initialEntries = ['/']) => {
   return render(
     <MemoryRouter initialEntries={initialEntries}>
       <ModalProvider>
         <AuthProvider>
-          <GlobalErrorBoundary onError={(e) => console.error('GLOBAL CRASH:', e)} fallback={<div>GLOBAL CRASH</div>}>
-            <App />
-          </GlobalErrorBoundary>
+          <App />
         </AuthProvider>
       </ModalProvider>
     </MemoryRouter>
@@ -511,42 +507,13 @@ const renderApp = (initialEntries = ['/']) => {
 // Helper that renders the app and waits for initial auth loading spinner to resolve
 const renderAppAndWait = async (initialEntries = ['/']) => {
   const rendered = renderApp(initialEntries);
-  
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach(m => {
-      console.log('MUTATION:', document.body.innerHTML);
-    });
-  });
-  observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-
   await waitFor(() => {
     expect(document.querySelector('.animate-spin')).toBeNull();
   });
-  
-  // Wait a tiny moment for React Router/Suspense to mount the next component which might introduce a new spinner
-  await new Promise(r => setTimeout(r, 20));
-  
-  await waitFor(() => {
-    expect(document.querySelector('.animate-spin')).toBeNull();
-  }, { timeout: 4000 });
-  
-  observer.disconnect();
   return rendered;
 };
 
 // Helper to seed localStorage auth state so AuthProvider recognises the session
-
-const seedOnboarding = () => {
-  mockOnboardingProfile = {
-    websiteUrl: 'https://example.com',
-    businessName: 'Acme Corp',
-    industry: 'Software',
-    targetCustomer: 'Developers',
-    mainOffer: 'Tooling',
-    primaryPainPoints: 'Testing is hard'
-  };
-};
-
 const seedAuthSession = (token = 'fresh-token') => {
   localStorage.setItem('brakett_access_token', token);
   localStorage.setItem('brakett_auth_provider', 'local');
@@ -581,7 +548,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('1. Verify Brand Presence', async () => {
     await renderAppAndWait(['/']);
-    expect(screen.getAllByText(/brackett/i)[0]).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /brackett/i })).toBeInTheDocument();
     expect(document.getElementById('brackett-landing-canvas')).toBeInTheDocument();
   });
 
@@ -599,8 +566,8 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('4. Verify Call to Action Buttons', async () => {
     await renderAppAndWait(['/']);
-    expect(document.getElementById('hero-cta-primary')).toHaveTextContent('Request access');
-    expect(screen.getAllByRole('button', { name: /See how it works/i })[0]).toHaveTextContent('See how it works');
+    expect(document.getElementById('hero-cta-primary')).toHaveTextContent('Create workspace');
+    expect(screen.getAllByRole('button', { name: /Preview the flow/i })[0]).toHaveTextContent('Preview the flow');
   });
 
   it('5. Verify Pricing Section Elements', async () => {
@@ -610,7 +577,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     expect(screen.getByText(/Early Access Team/i)).toBeInTheDocument();
     const pricingCtaPrimary = screen.getAllByRole('button', { name: /Create workspace/i })
       .find(btn => btn.id === 'pricing-cta-primary') ??
-      screen.getByRole('button', { name: /Request access/i });
+      screen.getAllByRole('button', { name: /Create workspace/i })[0];
     expect(pricingCtaPrimary).toHaveTextContent('Create workspace');
   });
 
@@ -650,7 +617,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/']);
     const cta = screen.getAllByRole('button', { name: /Request access/i })[0];
     fireEvent.click(cta!);
-    expect(screen.getByRole('heading', { name: /Welcome back/i })).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Create your workspace/i })).toBeInTheDocument();
 
     // ESC key closes AuthModal
@@ -668,7 +635,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/']);
     const signInBtn = screen.getByRole('button', { name: /Sign in/i });
     fireEvent.click(signInBtn!);
-    expect(screen.getByRole('heading', { name: /Welcome back/i })).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Welcome back/i })).toBeInTheDocument();
   });
 
@@ -687,7 +654,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument();
+      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining('/dashboard'));
     });
   });
 
@@ -710,7 +677,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument();
+      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining('/dashboard'));
     });
   });
 
@@ -726,7 +693,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await waitFor(() => {
       expect(localStorage.getItem('brakett_auth_provider')).toBe('local');
       expect(localStorage.getItem('brakett_workspace_id')).toBe('workspace-1');
-      expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument();
+      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining('/dashboard'));
     });
   });
 
@@ -735,14 +702,14 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument();
+      expect(screen.getByText(/Acme Corp/i)).toBeInTheDocument();
     });
 
     const logoutBtn = screen.getAllByRole('button', { name: /Sign out/i })[0];
     fireEvent.click(logoutBtn);
 
     await waitFor(() => {
-      expect(localStorage.getItem('brackett_access_token')).toBeNull();
+      expect(localStorage.getItem('brakett_access_token')).toBeNull();
       expect(localStorage.getItem('brakett_workspace_id')).toBeNull();
       // Should show the landing page links again
       expect(screen.getByRole('link', { name: /Why/i })).toBeInTheDocument();
@@ -846,9 +813,12 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   it('22. Website Import Path Success', async () => {
     seedAuthSession();
     await renderAppAndWait(['/dashboard']);
-    await waitFor(() => { expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument(); });
 
-    const urlInput = await screen.findByLabelText(/Company website/i);
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
+    });
+
+    const urlInput = screen.getByLabelText(/Company website/i);
     const submitBtn = screen.getByRole('button', { name: /Import context/i });
 
     fireEvent.change(urlInput, { target: { value: 'https://acme.org' } });
@@ -863,7 +833,10 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   it('23. Manual Profile Path Success', async () => {
     seedAuthSession();
     await renderAppAndWait(['/dashboard']);
-    await waitFor(() => { expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument(); });
+
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
+    });
 
     const businessName = screen.getByPlaceholderText('Business name');
     const industry = screen.getByPlaceholderText('Industry');
@@ -896,15 +869,21 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
     await renderAppAndWait(['/dashboard']);
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
-    await waitFor(() => { expect(screen.getByText(/Workspace profile active/i)).toBeInTheDocument(); });
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
+    });
+
+    expect(screen.getByText(/Workspace profile active/i)).toBeInTheDocument();
     expect(screen.getByText('Active Acme Inc')).toBeInTheDocument();
   });
 
   it('25. Branch Switching UI', async () => {
     seedAuthSession();
     await renderAppAndWait(['/dashboard']);
-    await waitFor(() => { expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument(); });
+
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
+    });
 
     expect(screen.getByRole('heading', { name: /Start from the public truth/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Shape the workspace yourself/i })).toBeInTheDocument();
@@ -913,9 +892,12 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   it('26. Invalid Website URL Format', async () => {
     seedAuthSession();
     await renderAppAndWait(['/dashboard']);
-    await waitFor(() => { expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument(); });
 
-    const urlInput = await screen.findByLabelText(/Company website/i);
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
+    });
+
+    const urlInput = screen.getByLabelText(/Company website/i);
     const submitBtn = screen.getByRole('button', { name: /Import context/i });
 
     fireEvent.change(urlInput, { target: { value: 'invalidurl' } });
@@ -929,7 +911,10 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   it('27. Empty Manual Fields Validation', async () => {
     seedAuthSession();
     await renderAppAndWait(['/dashboard']);
-    await waitFor(() => { expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument(); });
+
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
+    });
 
     const submitBtn = screen.getByRole('button', { name: /Save business profile/i });
     fireEvent.click(submitBtn);
@@ -942,7 +927,10 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   it('28. Onboarding API Failure recovery', async () => {
     seedAuthSession();
     await renderAppAndWait(['/dashboard']);
-    await waitFor(() => { expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument(); });
+
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
+    });
 
     fetchMock.mockImplementationOnce(async (url: string) => {
       if (url.includes('/onboarding/scratch')) {
@@ -951,7 +939,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
       return jsonResponse({});
     });
 
-    fireEvent.change(await screen.findByPlaceholderText('Business name'), { target: { value: 'Acme Fail' } });
+    fireEvent.change(screen.getByPlaceholderText('Business name'), { target: { value: 'Acme Fail' } });
     fireEvent.change(screen.getByPlaceholderText('Industry'), { target: { value: 'Testing' } });
     fireEvent.click(screen.getByRole('button', { name: /Save business profile/i }));
 
@@ -978,7 +966,10 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   it('30. Submitting state disabled inputs', async () => {
     seedAuthSession();
     await renderAppAndWait(['/dashboard']);
-    await waitFor(() => { expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument(); });
+
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
+    });
 
     let resolveImport: any;
     const importPromise = new Promise<Response>((resolve) => {
@@ -986,7 +977,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     });
     fetchMock.mockReturnValueOnce(importPromise);
 
-    const urlInput = await screen.findByLabelText(/Company website/i);
+    const urlInput = screen.getByLabelText(/Company website/i);
     const submitBtn = screen.getByRole('button', { name: /Import context/i });
 
     fireEvent.change(urlInput, { target: { value: 'https://waiting.com' } });
@@ -1006,34 +997,36 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('31. Overview Business Snapshot', async () => {
     seedAuthSession();
-    seedOnboarding();
     mockWorkspace.name = 'Test Snapshot Workspace';
 
     await renderAppAndWait(['/dashboard']);
 
-    expect(screen.getAllByText(/Test Snapshot Workspace/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Test Snapshot Workspace/i)).toBeInTheDocument();
   });
 
   it('32. Questions List rendering', async () => {
     seedAuthSession();
-    seedOnboarding();
     mockQuestions = [
       { id: 'question-1', title: 'Why is standard testing important?', status: 'open', priority: 'medium', assignees: [], latestDecision: null }
     ];
 
     await renderAppAndWait(['/dashboard']);
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
-    await waitFor(() => { expect(screen.getByText('Why is standard testing important?')).toBeInTheDocument(); });
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
+    });
+
+    expect(screen.getByText('Why is standard testing important?')).toBeInTheDocument();
   });
 
   it('33. Add new question', async () => {
     seedAuthSession();
-    seedOnboarding();
     await renderAppAndWait(['/dashboard']);
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
-    await waitFor(() => { expect(screen.getByPlaceholderText('What needs a clear answer?')).toBeInTheDocument(); });
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
+    });
+
     const questionInput = screen.getByPlaceholderText('What needs a clear answer?');
     const submitBtn = screen.getByRole('button', { name: /Capture question/i });
 
@@ -1047,15 +1040,17 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('34. Log decision on question', async () => {
     seedAuthSession();
-    seedOnboarding();
     mockQuestions = [
       { id: 'question-1', title: 'Should we deploy today?', status: 'open', priority: 'high', assignees: [], latestDecision: null }
     ];
 
     await renderAppAndWait(['/dashboard']);
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
-    await waitFor(() => { expect(screen.getByText('Should we deploy today?')).toBeInTheDocument(); });
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
+    });
+
+    expect(screen.getByText('Should we deploy today?')).toBeInTheDocument();
     expect(screen.getByText('Open')).toBeInTheDocument();
 
     // Trigger submitDecision from the injected Action component
@@ -1063,13 +1058,12 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     fireEvent.click(triggerBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/Answered/i)).toBeInTheDocument();
+      expect(screen.getByText('Logged')).toBeInTheDocument();
     });
   });
 
   it('35. Guided Tour Flow', async () => {
     seedAuthSession();
-    seedOnboarding();
     localStorage.removeItem('brackett_tour_v3_seen');
 
     await renderAppAndWait(['/dashboard']);
@@ -1087,7 +1081,6 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('36. Empty Workspace state', async () => {
     seedAuthSession();
-    seedOnboarding();
     mockQuestions = [];
 
     await renderAppAndWait(['/dashboard']);
@@ -1096,23 +1089,22 @@ describe('brackett Comprehensive E2E Test Suite', () => {
       fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
     });
 
-    expect(screen.getByText(/Setup needed: define the business/i)).toBeInTheDocument();
+    expect(screen.getByText('Nothing is stuck right now.')).toBeInTheDocument();
   });
 
   it('37. Dashboard loading state', async () => {
     seedAuthSession();
-    seedOnboarding();
     // Clean start without rendering App beforehand
     let resolveDashboard: any;
     const promise = new Promise<Response>((resolve) => {
       resolveDashboard = resolve;
     });
-    fetchMock.mockImplementation(async (url) => { if (url.includes('/api/workspace')) return promise; return defaultFetchImpl(url); });
+    fetchMock.mockReturnValue(promise);
 
     renderApp(['/dashboard']);
 
     // Loader spinner screen should be visible
-    expect(await screen.findByText(/Opening your workspace/i)).toBeInTheDocument();
+    expect(screen.getByText(/Opening your workspace/i)).toBeInTheDocument();
 
     await act(async () => {
       resolveDashboard(jsonResponse({ id: 'workspace-1', name: 'Acme Corp' }));
@@ -1121,7 +1113,6 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('38. Dashboard load failure recovery', async () => {
     seedAuthSession();
-    seedOnboarding();
     fetchMock.mockRejectedValue(new Error('Internal Database Error'));
 
     renderApp(['/dashboard']);
@@ -1135,7 +1126,6 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('39. Toggle board archive boundary', async () => {
     seedAuthSession();
-    seedOnboarding();
     mockBoards = [
       { id: 'board-1', name: 'Product Release', description: 'MVP rollout', isArchived: false }
     ];
@@ -1146,8 +1136,8 @@ describe('brackett Comprehensive E2E Test Suite', () => {
       fireEvent.click(screen.getAllByRole('button', { name: /Sources/i })[0]);
     });
 
-    await waitFor(() => { expect(screen.getByText('Product Release')).toBeInTheDocument(); });
-    const archiveBtn = await screen.findByRole('button', { name: 'Archive' });
+    expect(screen.getByText('Product Release')).toBeInTheDocument();
+    const archiveBtn = screen.getByRole('button', { name: 'Archive' });
     fireEvent.click(archiveBtn);
 
     await waitFor(() => {
@@ -1158,7 +1148,6 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('40. Invalid status update logic', async () => {
     seedAuthSession();
-    seedOnboarding();
     mockQuestions = [
       { id: 'question-1', title: 'DB security check', status: 'open', priority: 'medium', assignees: [], latestDecision: null }
     ];
@@ -1181,25 +1170,26 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('41. Auth Session expiry triggers login modal', async () => {
     seedAuthSession();
-    seedOnboarding();
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument();
+      expect(screen.getByText(/Acme Corp/i)).toBeInTheDocument();
     });
 
-    fetchMock.mockImplementation(async (url: string) => {
-      if (url.includes('/questions') || url.includes('/auth/refresh')) {
+    fetchMock.mockImplementationOnce(async (url: string) => {
+      if (url.includes('/questions')) {
         return jsonResponse({ message: 'expired' }, { status: 401 });
       }
       return jsonResponse({});
     });
 
-    await waitFor(() => { fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]); });
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Decisions/i })[0]);
+    });
 
     await waitFor(() => {
       expect(localStorage.getItem('brakett_access_token')).toBeNull();
-      expect(screen.getByRole('heading', { name: /Welcome back/i })).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: /Welcome back/i })).toBeInTheDocument();
     });
   });
@@ -1211,7 +1201,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     await waitFor(() => {
-      expect(screen.getByText('Start from the public truth')).toBeInTheDocument();
+      expect(screen.getByText('Import company context')).toBeInTheDocument();
     });
 
     await act(async () => {
@@ -1240,16 +1230,15 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Create workspace' }).find(btn => btn.getAttribute('type') === 'submit')!);
 
     await waitFor(() => {
-      expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument();
+      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining('/dashboard'));
     });
   });
 
   it('44. Invite acceptance auth transition', async () => {
     await renderAppAndWait(['/accept-invite']);
-    fireEvent.click(screen.getByRole('button', { name: /Sign in to join/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Welcome back/i })).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: /Welcome back/i })).toBeInTheDocument();
     });
   });
@@ -1261,7 +1250,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
   it('45. Full User Lifecycle Workload', async () => {
     // 1. Landing page
     await renderAppAndWait(['/']);
-    expect(screen.getAllByText(/brackett/i)[0]).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /brackett/i })).toBeInTheDocument();
 
     // 2. Signup
     fireEvent.click(screen.getAllByRole('button', { name: /Request access/i })[0]);
@@ -1272,7 +1261,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Create workspace' }).find(btn => btn.getAttribute('type') === 'submit')!);
 
     await waitFor(() => {
-      expect(screen.getByText(/Start from the public truth/i)).toBeInTheDocument();
+      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining('/dashboard'));
     });
 
     // Reset session states for dashboard rendering
@@ -1281,9 +1270,10 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await renderAppAndWait(['/dashboard']);
 
     // 3. Complete onboarding from scratch
-    
-    
-    fireEvent.change(await screen.findByPlaceholderText('Business name'), { target: { value: 'Lifecycle Corp' } });
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByRole('button', { name: /Context/i })[0]);
+    });
+    fireEvent.change(screen.getByPlaceholderText('Business name'), { target: { value: 'Lifecycle Corp' } });
     fireEvent.change(screen.getByPlaceholderText('Industry'), { target: { value: 'AI Testing' } });
     fireEvent.click(screen.getByRole('button', { name: /Save business profile/i }));
 
@@ -1327,7 +1317,6 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('46. Full Website Import & Team Invite Workload', async () => {
     seedAuthSession();
-    // seedOnboarding() REMOVED so form is visible
     await renderAppAndWait(['/dashboard']);
 
     // 1. Open Onboarding
@@ -1336,7 +1325,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     });
 
     // 2. Import website URL
-    const urlInput = await screen.findByLabelText(/Company website/i);
+    const urlInput = screen.getByLabelText(/Company website/i);
     const submitBtn = screen.getByRole('button', { name: /Import context/i });
     fireEvent.change(urlInput, { target: { value: 'https://teamwork.org' } });
     fireEvent.click(submitBtn);
@@ -1363,7 +1352,6 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('47. Analyst Assistant Query Workload', async () => {
     seedAuthSession();
-    seedOnboarding();
     mockQuestions = [
       { id: 'question-1', title: 'MVP decision status', status: 'open', priority: 'medium', assignees: [], latestDecision: null }
     ];
@@ -1376,7 +1364,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     });
 
     // 2. Submit AI query
-    const textarea = await screen.findByPlaceholderText('Ask what needs attention...');
+    const textarea = screen.getByPlaceholderText('Ask what needs attention...');
     const submitBtn = screen.getByLabelText('Ask analyst');
 
     fireEvent.change(textarea, { target: { value: 'What is the MVP status?' } });
@@ -1391,7 +1379,6 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
   it('48. API Integration Setup Workload', async () => {
     seedAuthSession();
-    seedOnboarding();
     await renderAppAndWait(['/dashboard']);
 
     // 1. Open Integrations tab
@@ -1400,12 +1387,12 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     });
 
     // 2. Connect Slack placeholder integration
-    const saveChecklistBtns = await screen.findAllByRole('button', { name: /Save setup checklist/i });
-    fireEvent.click(saveChecklistBtns[0]);
+    const saveChecklistBtn = screen.getByRole('button', { name: /Save setup checklist/i });
+    fireEvent.click(saveChecklistBtn);
 
     // 3. Verify success checkmark/live badge
     await waitFor(() => {
-      expect(screen.getByText(/Setup needed/i)).toBeInTheDocument();
+      expect(screen.getByText('Live source')).toBeInTheDocument();
     });
   });
 });

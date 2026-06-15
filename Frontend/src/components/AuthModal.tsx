@@ -192,7 +192,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
       });
 
       if (payload.accessToken) {
-        onClose();
+        setTimeout(() => {
+          onClose();
+          if (window.location.pathname !== '/dashboard') {
+            window.location.assign('/dashboard');
+          }
+        }, 700);
       }
     } catch (error) {
       setStatus({
