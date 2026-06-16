@@ -1,7 +1,7 @@
 import { clearAuthSession } from './authSession';
 
 const LOCAL_API_BASE_URL = '/api';
-const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+const configuredApiBaseUrl = 'https://brackett.onrender.com';
 
 if (!configuredApiBaseUrl && import.meta.env.PROD) {
   console.warn('VITE_API_BASE_URL is not configured for production. Falling back to /api');
