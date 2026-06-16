@@ -73,7 +73,7 @@ export const Hero: React.FC = () => {
           <motion.div variants={itemVariants} className="flex items-center gap-3 mb-6">
             <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
             <span className="font-mono text-xs uppercase tracking-widest text-indigo-600 font-semibold">
-              Product Management as a Service
+              Brackett
             </span>
           </motion.div>
 
