@@ -4,7 +4,7 @@ const LOCAL_API_BASE_URL = '/api';
 const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
 
 if (!configuredApiBaseUrl && import.meta.env.PROD) {
-  throw new Error('VITE_API_BASE_URL must be configured for production builds.');
+  console.warn('VITE_API_BASE_URL is not configured for production. Falling back to /api');
 }
 
 const API_BASE_URL = configuredApiBaseUrl || LOCAL_API_BASE_URL;
