@@ -51,8 +51,8 @@ export const SocialProof: React.FC = () => {
           </div>
 
           {/* Quote */}
-          <h3 className="font-syne text-2xl md:text-[32px] italic font-semibold leading-[1.4] tracking-tight text-zinc-950 mb-6 max-w-3xl">
-            "The AI Product Manager is unreal. It took our messy Slack threads and instantly synthesized them into a clear engineering scope. We got the execution of a senior PM on day one."
+          <h3 className="font-syne text-xl md:text-[28px] italic font-semibold leading-[1.4] tracking-tight text-zinc-950 mb-6 max-w-4xl px-4">
+            "The AI PM synthesized our messy Slack threads into a clear engineering scope on day one."
           </h3>
           <div className="mb-12">
             <p className="font-sans text-[16px] font-semibold text-zinc-900">Sarah Jenkins</p>
