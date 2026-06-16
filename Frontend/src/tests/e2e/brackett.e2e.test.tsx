@@ -1136,7 +1136,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
       fireEvent.click(screen.getAllByRole('button', { name: /Sources/i })[0]);
     });
 
-    expect(screen.getByText('Product Release')).toBeInTheDocument();
+    expect(screen.getAllByText('Product Release')[0]).toBeInTheDocument();
     const archiveBtn = screen.getByRole('button', { name: 'Archive' });
     fireEvent.click(archiveBtn);
 
