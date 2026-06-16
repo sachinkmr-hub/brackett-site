@@ -169,21 +169,25 @@ const scrapeWithFirecrawl = async (rawUrl: string): Promise<WebsiteExtractionRes
   };
 
   try {
-    const mapResponse = await axios.post(
-      `${baseUrl}/map`,
-      {
-        url: safeUrl,
-        sitemap: 'include',
-        includeSubdomains: false,
-        ignoreQueryParameters: true,
-        limit: 30,
-        timeout: 30000,
-      },
-      { headers, timeout: 35000 }
-    );
-
-    const mappedLinks = mapResponse.data?.links || mapResponse.data?.data?.links || [];
-    const candidateUrls = pickUsefulFirecrawlUrls(safeUrl, mappedLinks);
+    let candidateUrls = [safeUrl];
+    try {
+      const mapResponse = await axios.post(
+        `${baseUrl}/map`,
+        {
+          url: safeUrl,
+          sitemap: 'include',
+          includeSubdomains: false,
+          ignoreQueryParameters: true,
+          limit: 30,
+          timeout: 30000,
+        },
+        { headers, timeout: 35000 }
+      );
+      const mappedLinks = mapResponse.data?.links || mapResponse.data?.data?.links || [];
+      candidateUrls = pickUsefulFirecrawlUrls(safeUrl, mappedLinks);
+    } catch (mapError) {
+      logger.warn({ err: mapError instanceof Error ? mapError.message : String(mapError), safeUrl }, 'Firecrawl /map failed (possibly free tier), falling back to single page scrape');
+    }
     const pageTexts: string[] = [];
     const pages: string[] = [];
 
