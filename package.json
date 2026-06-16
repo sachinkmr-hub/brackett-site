@@ -1,0 +1,7 @@
+{
+  "name": "brackett-root",
+  "private": true,
+  "scripts": {
+    "build": "cd Frontend && npm ci && npm run build"
+  }
+}
