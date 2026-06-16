@@ -218,7 +218,8 @@ const defaultFetchImpl = async (url: string, options: any = {}) => {
   const urlString = url.toString();
   
   const apiBase = 'http://localhost:4000';
-  const path = urlString.startsWith(apiBase) ? urlString.slice(apiBase.length) : urlString;
+  let path = urlString.startsWith(apiBase) ? urlString.slice(apiBase.length) : urlString;
+  if (path.startsWith('/api')) path = path.slice(4);
 
   console.log(`FETCH: ${method} ${path}`);
 
