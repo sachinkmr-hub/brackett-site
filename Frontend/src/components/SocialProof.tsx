@@ -42,11 +42,10 @@ export const SocialProof: React.FC = () => {
                 </div>
               ))}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center">
               <div className="flex text-amber-500">
                 {[1, 2, 3, 4, 5].map(star => <Star key={star} size={20} fill="currentColor" />)}
               </div>
-              <p className="font-sans text-[15px] font-semibold text-zinc-800">Join 500+ founders in the early access program</p>
             </div>
           </div>
 
