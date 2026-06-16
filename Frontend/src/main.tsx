@@ -4,6 +4,7 @@ import { AuthProvider } from './providers/AuthProvider';
 import { ModalProvider } from './providers/ModalProvider';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { Analytics } from '@vercel/analytics/react';
 import App from './App.tsx';
 import { getClerkPublishableKey, isClerkFrontendConfigured } from './lib/clerk.ts';
 import { applySpaPathRedirect, getAppBasePath } from './lib/routing.ts';
@@ -43,9 +44,13 @@ createRoot(document.getElementById('root')!).render(
         }}
       >
         {appNode}
+        <Analytics />
       </ClerkProvider>
     ) : (
-      appNode
+      <>
+        {appNode}
+        <Analytics />
+      </>
     )}
   </StrictMode>,
 );
