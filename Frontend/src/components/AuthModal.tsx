@@ -194,9 +194,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
       if (payload.accessToken) {
         setTimeout(() => {
           onClose();
-          if (window.location.pathname !== '/dashboard') {
-            navigate('/dashboard');
-          }
+          // Use client-side navigation to preserve the React tree and in-memory
+          // accessToken. window.location.assign() causes a full page reload,
+          // wiping the token before AuthProvider can use it.
+          navigate('/dashboard');
         }, 700);
       }
     } catch (error) {
