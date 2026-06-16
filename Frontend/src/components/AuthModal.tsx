@@ -195,7 +195,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         setTimeout(() => {
           onClose();
           if (window.location.pathname !== '/dashboard') {
-            window.location.assign('/dashboard');
+            navigate('/dashboard');
           }
         }, 700);
       }
