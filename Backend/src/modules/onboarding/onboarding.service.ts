@@ -179,9 +179,9 @@ const scrapeWithFirecrawl = async (rawUrl: string): Promise<WebsiteExtractionRes
           includeSubdomains: false,
           ignoreQueryParameters: true,
           limit: 30,
-          timeout: 30000,
+          timeout: 10000,
         },
-        { headers, timeout: 35000 }
+        { headers, timeout: 15000 }
       );
       const mappedLinks = mapResponse.data?.links || mapResponse.data?.data?.links || [];
       candidateUrls = pickUsefulFirecrawlUrls(safeUrl, mappedLinks);
@@ -197,14 +197,11 @@ const scrapeWithFirecrawl = async (rawUrl: string): Promise<WebsiteExtractionRes
           `${baseUrl}/scrape`,
           {
             url: pageUrl,
-            formats: ['markdown', 'summary', 'links', 'branding'],
+            formats: ['markdown'],
             onlyMainContent: true,
-            onlyCleanContent: true,
-            removeBase64Images: true,
-            blockAds: true,
-            timeout: 60000,
+            timeout: 20000,
           },
-          { headers, timeout: 70000 }
+          { headers, timeout: 25000 }
         );
 
         const data = scrapeResponse.data?.data;
