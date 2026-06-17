@@ -19,7 +19,7 @@ export class AIService {
   }
 
   private static getModel() {
-    return process.env.LLM_MODEL?.trim() || 'llama3-70b-8192';
+    return process.env.LLM_MODEL?.trim() || 'llama-3.3-70b-versatile';
   }
 
   private static getProvider() {
@@ -56,14 +56,15 @@ export class AIService {
 
   private static async buildHiddenContext() {
     const bundle = await loadPromptBundle();
-    const resources = bundle.resources
-      .map((resource, index) => `Resource ${index + 1} (${resource.name}):\n${resource.content}`)
-      .join('\n\n');
+    // Temporarily keeping resources aside as requested by the user
+    // const resources = bundle.resources
+    //   .map((resource, index) => `Resource ${index + 1} (${resource.name}):\n${resource.content}`)
+    //   .join('\n\n');
 
     return [
       bundle.systemPrompt,
       bundle.outputInstructions,
-      resources,
+      // resources,
     ].join('\n\n');
   }
 
