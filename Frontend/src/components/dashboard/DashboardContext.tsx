@@ -142,6 +142,13 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
   const submitDecision = async (questionId: string, form: any) => withWorkspace(async (id) => {
     await apiRequest(`/workspaces/${id}/questions/${questionId}/decision`, { method: 'POST', body: JSON.stringify(form) });
     showAlert('Success', 'Official decision logged.');
+    if (typeof pendo !== 'undefined') {
+      pendo.track('decision_logged', {
+        question_id: questionId,
+        has_source_summary: Boolean(form.sourceSummary),
+        has_source_url: Boolean(form.sourceUrl),
+      });
+    }
   });
 
   const createBoard = async (form: any) => withWorkspace(async (id) => {
@@ -152,6 +159,13 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
   const toggleBoardArchive = async (board: Board) => withWorkspace(async (id) => {
     await apiRequest(`/workspaces/${id}/boards/${board.id}`, { method: 'PATCH', body: JSON.stringify({ isArchived: !board.isArchived }) });
     showAlert('Success', board.isArchived ? 'Board restored.' : 'Board archived.');
+    if (typeof pendo !== 'undefined') {
+      pendo.track('board_archive_toggled', {
+        board_id: board.id,
+        board_name: board.name,
+        action: board.isArchived ? 'restored' : 'archived',
+      });
+    }
   });
 
   const createInvite = async (form: any) => {
@@ -162,6 +176,13 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
       await navigator.clipboard?.writeText(link).catch(() => undefined);
       const deliveryMessage = invite.emailDelivery?.message || 'Invite link created.';
       showAlert(invite.emailDelivery?.sent ? 'Invite Sent' : 'Invite Link Ready', `${deliveryMessage} The invite link is ready to share.`);
+      if (typeof pendo !== 'undefined') {
+        pendo.track('invite_created', {
+          invitee_role: form.role || 'member',
+          email_delivery_sent: Boolean(invite.emailDelivery?.sent),
+          email_delivery_provider: invite.emailDelivery?.provider || '',
+        });
+      }
     });
     return link;
   };
@@ -177,12 +198,28 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
   });
 
   const updateQuestionStatus = async (questionId: string, status: string) => withWorkspace(async (id) => {
+    const previousStatus = questions.find(q => q.id === questionId)?.status || '';
     await apiRequest(`/workspaces/${id}/questions/${questionId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+    if (typeof pendo !== 'undefined') {
+      pendo.track('question_status_updated', {
+        question_id: questionId,
+        new_status: status,
+        previous_status: previousStatus,
+      });
+    }
   });
 
   const autoAssignQuestion = async (questionId: string) => withWorkspace(async (id) => {
     const payload = await apiRequest<AutoAssignResponse>(`/workspaces/${id}/questions/${questionId}/auto-assign`, { method: 'POST', body: JSON.stringify({}) });
     showAlert('Assigned', `Assigned ${payload.selectedMember.name} using the workspace load-balancing rule.`);
+    if (typeof pendo !== 'undefined') {
+      pendo.track('question_auto_assigned', {
+        question_id: questionId,
+        assigned_member_name: payload.selectedMember.name,
+        assigned_member_role: payload.selectedMember.role,
+        heuristic: payload.heuristic,
+      });
+    }
   });
 
   const exportQuestions = async (format: 'json' | 'markdown' | 'pdf') => withWorkspace(async (id) => {
@@ -198,6 +235,12 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
       link.remove();
       window.URL.revokeObjectURL(url);
       showAlert('Success', 'PDF export downloaded.');
+      if (typeof pendo !== 'undefined') {
+        pendo.track('questions_exported', {
+          export_format: 'pdf',
+          question_count: questions.length,
+        });
+      }
       return;
     }
 
@@ -210,6 +253,12 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
       navigator.clipboard.writeText(content).catch(() => {});
       showAlert('Success', 'JSON export copied to clipboard.');
     }
+    if (typeof pendo !== 'undefined') {
+      pendo.track('questions_exported', {
+        export_format: format,
+        question_count: questions.length,
+      });
+    }
   });
 
   const connectPlaceholderIntegration = async (provider: string, isGoogleAuthReady: boolean) => withWorkspace(async (id) => {
@@ -221,6 +270,13 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
       }),
     });
     showAlert('Success', isGoogleAuthReady ? `${provider} setup saved.` : `${provider} setup checklist saved.`);
+    if (typeof pendo !== 'undefined') {
+      pendo.track('integration_setup_saved', {
+        provider: provider,
+        is_google_auth_ready: isGoogleAuthReady,
+        status: isGoogleAuthReady ? 'ready' : 'setup_required',
+      });
+    }
   });
 
   const copyAnnouncementDraft = async (questionId: string) => withWorkspace(async (id) => {
@@ -231,6 +287,13 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
                           payload.announcement.plainText;
     await navigator.clipboard.writeText(preferredText).catch(() => {});
     showAlert('Success', connected.length ? `Announcement copied for ${connected.join(', ')}.` : 'Announcement copied.');
+    if (typeof pendo !== 'undefined') {
+      pendo.track('announcement_draft_copied', {
+        question_id: questionId,
+        connected_providers_count: connected.length,
+        preferred_format: connected.includes('slack') ? 'slack' : connected.includes('teams') ? 'teams' : 'plain',
+      });
+    }
   });
 
   const sendAnnouncementUpdate = async (questionId: string, providers: string[]) => withWorkspace(async (id) => {
@@ -239,6 +302,14 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
     });
     const summary = payload.deliveries.map((d) => `${d.provider} (${d.status})`).join(', ');
     showAlert('Sent', summary ? `Delivery recorded: ${summary}.` : 'Announcement delivery requested.');
+    if (typeof pendo !== 'undefined') {
+      pendo.track('announcement_sent', {
+        question_id: questionId,
+        provider_count: providers.length,
+        providers: providers.join(','),
+        delivery_statuses: payload.deliveries.map(d => d.status).join(','),
+      });
+    }
   });
 
   const askPrivateAnalyst = async (query: string) => {

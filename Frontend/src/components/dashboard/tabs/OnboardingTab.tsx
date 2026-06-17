@@ -33,6 +33,14 @@ export const OnboardingTab: React.FC = () => {
     try {
       const saved = await submitWebsiteOnboarding(trimmedUrl);
       if (saved) {
+        if (typeof pendo !== 'undefined') {
+          let domain = '';
+          try { domain = new URL(trimmedUrl).hostname; } catch {}
+          pendo.track('website_context_imported', {
+            website_url_domain: domain,
+            is_first_import: !onboardingProfile?.websiteUrl,
+          });
+        }
         setWebsiteUrl(trimmedUrl);
       }
     } finally {
@@ -44,7 +52,17 @@ export const OnboardingTab: React.FC = () => {
     event.preventDefault();
     setSubmittingMode('scratch');
     try {
-      await submitScratchOnboarding(scratchForm);
+      const saved = await submitScratchOnboarding(scratchForm);
+      if (saved && typeof pendo !== 'undefined') {
+        pendo.track('business_profile_saved', {
+          has_business_name: Boolean(scratchForm.businessName.trim()),
+          has_industry: Boolean(scratchForm.industry.trim()),
+          has_target_customer: Boolean(scratchForm.targetCustomer.trim()),
+          has_main_offer: Boolean(scratchForm.mainOffer.trim()),
+          has_pain_points: Boolean(scratchForm.primaryPainPoints.trim()),
+          fields_filled_count: [scratchForm.businessName, scratchForm.industry, scratchForm.targetCustomer, scratchForm.mainOffer, scratchForm.primaryPainPoints].filter(v => v.trim()).length,
+        });
+      }
     } finally {
       setSubmittingMode(null);
     }

@@ -186,6 +186,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
       }
 
       persistAuthSession(payload);
+
+      if (typeof pendo !== 'undefined') {
+        if (isLogin) {
+          pendo.track('user_logged_in', {
+            auth_method: 'email',
+          });
+        } else {
+          pendo.track('user_signed_up', {
+            auth_method: 'email',
+            workspace_name: workspaceName,
+            has_workspace_name: Boolean(workspaceName.trim()),
+          });
+        }
+      }
+
       setStatus({
         type: 'success',
         message: payload.message || (isLogin ? 'Signed in successfully.' : 'Workspace created successfully.'),

@@ -60,6 +60,14 @@ export const InviteAcceptPage: React.FC<InviteAcceptPageProps> = ({
             : "You're in. Opening your workspace now."
         );
 
+        if (typeof pendo !== 'undefined') {
+          pendo.track('invite_accepted', {
+            workspace_name: payload.workspace?.name || '',
+            workspace_id: payload.workspace?.id || '',
+            assigned_role: payload.role || '',
+          });
+        }
+
         window.setTimeout(() => {
           window.location.replace(buildAppUrl('/').toString());
         }, 900);

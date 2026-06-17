@@ -82,6 +82,15 @@ export const ClerkSessionBridge: React.FC = () => {
           persistAuthSession(payload);
           syncedSessionRef.current = sessionId;
           failedSessionRef.current = null;
+
+          if (typeof pendo !== 'undefined') {
+            pendo.track('google_sign_in_completed', {
+              auth_method: 'google',
+              workspace_name: workspaceName || '',
+              is_new_user: Boolean(workspaceName),
+            });
+          }
+
           const redirectTarget = getClerkRedirectTarget();
 
           if (isClerkAuthHandoffRequest()) {
