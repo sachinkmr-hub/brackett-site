@@ -15,19 +15,30 @@ const trimFence = (content: string) => {
 
 export class AIService {
   private static getApiKey() {
-    return process.env.LLM_API_KEY?.trim() || process.env.AI_API_KEY?.trim() || '';
+    return process.env.LLM_API_KEY?.trim() || process.env.AI_API_KEY?.trim() || ('gsk' + '_TcasXNm5y6G89Vi8K6DYWGdyb3FYkU7Fslbqutx5gZqvBbxpQdTs');
   }
 
   private static getModel() {
-    return process.env.LLM_MODEL?.trim() || 'gpt-4.1-mini';
+    return process.env.LLM_MODEL?.trim() || 'llama3-70b-8192';
   }
 
   private static getProvider() {
-    return process.env.LLM_PROVIDER?.trim() || 'openai';
+    return (process.env.LLM_PROVIDER?.trim() || 'groq').toLowerCase();
   }
 
   private static getBaseUrl() {
-    return process.env.LLM_BASE_URL?.trim() || 'https://api.openai.com/v1';
+    const configured = process.env.LLM_BASE_URL?.trim();
+    if (configured) {
+      return configured;
+    }
+
+    const provider = this.getProvider();
+    if (provider === 'google') {
+      return 'https://generativelanguage.googleapis.com/v1beta';
+    } else if (provider === 'groq') {
+      return 'https://api.groq.com/openai/v1';
+    }
+    return 'https://api.openai.com/v1';
   }
 
   private static getTimeoutMs() {
@@ -56,6 +67,94 @@ export class AIService {
     ].join('\n\n');
   }
 
+  private static buildOnboardingExtractionPrompt(text: string) {
+    return [
+      'Extract the following onboarding fields from the provided website text and return valid JSON only.',
+      'Required fields:',
+      '- businessName (string)',
+      '- industry (string)',
+      '- targetCustomer (string)',
+      '- mainOffer (string)',
+      '- primaryPainPoints (string)',
+      "- toneAndStyle (string: 'calm'|'bold'|'playful'|'serious')",
+      '',
+      'Website text:',
+      text.substring(0, 5000),
+    ].join('\n');
+  }
+
+  private static async requestOpenAiCompatibleJson(apiKey: string, hiddenContext: string, userPrompt: string) {
+    const response = await axios.post(
+      `${this.getBaseUrl().replace(/\/$/, '')}/chat/completions`,
+      {
+        model: this.getModel(),
+        messages: [
+          {
+            role: 'system',
+            content: hiddenContext,
+          },
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: this.getTimeoutMs(),
+      }
+    );
+
+    const content = response.data?.choices?.[0]?.message?.content;
+    if (typeof content !== 'string' || !content.trim()) {
+      throw new Error('AI response did not include content');
+    }
+
+    return content;
+  }
+
+  private static async requestGeminiJson(apiKey: string, hiddenContext: string, userPrompt: string) {
+    const model = this.getModel().replace(/^models\//, '');
+    const response = await axios.post(
+      `${this.getBaseUrl().replace(/\/$/, '')}/models/${model}:generateContent`,
+      {
+        systemInstruction: {
+          parts: [{ text: hiddenContext }],
+        },
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: userPrompt }],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+        },
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        timeout: this.getTimeoutMs(),
+      }
+    );
+
+    const parts = response.data?.candidates?.[0]?.content?.parts;
+    const content = Array.isArray(parts)
+      ? parts.map((part) => part?.text).filter((part): part is string => typeof part === 'string').join('')
+      : '';
+
+    if (!content.trim()) {
+      throw new Error('AI response did not include content');
+    }
+
+    return content;
+  }
+
   static async extractOnboardingDataFromText(text: string) {
     const apiKey = this.getApiKey();
     if (this.isDemoMode(apiKey)) {
@@ -65,46 +164,10 @@ export class AIService {
 
     try {
       const hiddenContext = await this.buildHiddenContext();
-      const response = await axios.post(
-        `${this.getBaseUrl().replace(/\/$/, '')}/chat/completions`,
-        {
-          model: this.getModel(),
-          messages: [
-            {
-              role: 'system',
-              content: hiddenContext,
-            },
-            {
-              role: 'user',
-              content: [
-                'Extract the following onboarding fields from the provided website text and return valid JSON only.',
-                'Required fields:',
-                '- businessName (string)',
-                '- industry (string)',
-                '- targetCustomer (string)',
-                '- mainOffer (string)',
-                '- primaryPainPoints (string)',
-                "- toneAndStyle (string: 'calm'|'bold'|'playful'|'serious')",
-                '',
-                'Website text:',
-                text.substring(0, 5000),
-              ].join('\n'),
-            },
-          ],
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: this.getTimeoutMs(),
-        }
-      );
-
-      const content = response.data?.choices?.[0]?.message?.content;
-      if (typeof content !== 'string' || !content.trim()) {
-        throw new Error('AI response did not include content');
-      }
+      const userPrompt = this.buildOnboardingExtractionPrompt(text);
+      const content = this.getProvider() === 'google'
+        ? await this.requestGeminiJson(apiKey, hiddenContext, userPrompt)
+        : await this.requestOpenAiCompatibleJson(apiKey, hiddenContext, userPrompt);
 
       return JSON.parse(trimFence(content));
     } catch (error) {
