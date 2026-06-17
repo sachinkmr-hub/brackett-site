@@ -10,6 +10,8 @@ import { applySpaPathRedirect, getAppBasePath } from './lib/routing.ts';
 import { COLORS } from './theme/tokens';
 import './index.css';
 
+pendo.initialize({ visitor: { id: '' } });
+
 const clerkPublishableKey = getClerkPublishableKey();
 applySpaPathRedirect();
 

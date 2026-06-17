@@ -1,10 +1,16 @@
 export type AuthPayload = {
   accessToken?: string;
   user?: {
+    id?: string;
+    email?: string;
+    name?: string;
     authProvider?: string;
   } | null;
   workspace?: {
     id?: string;
+    name?: string;
+    slug?: string;
+    role?: string;
   } | null;
 };
 
@@ -24,6 +30,23 @@ export const persistAuthSession = (payload: AuthPayload) => {
     localStorage.setItem(LEGACY_WORKSPACE_ID_KEY, payload.workspace.id);
   }
 
+  if (payload.user?.id) {
+    pendo.identify({
+      visitor: {
+        id: payload.user.id,
+        email: payload.user.email,
+        full_name: payload.user.name,
+        authProvider: payload.user.authProvider,
+        workspaceRole: payload.workspace?.role,
+      },
+      account: {
+        id: payload.workspace?.id,
+        name: payload.workspace?.name,
+        slug: payload.workspace?.slug,
+      },
+    });
+  }
+
   window.dispatchEvent(new CustomEvent('brakett-authenticated', { detail: payload }));
 };
 
@@ -31,6 +54,7 @@ export const clearAuthSession = () => {
   localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
   localStorage.removeItem(LEGACY_WORKSPACE_ID_KEY);
   localStorage.removeItem(LEGACY_AUTH_PROVIDER_KEY);
+  pendo.clearSession();
   window.dispatchEvent(new CustomEvent('brakett-signed-out'));
 };
 
