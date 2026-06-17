@@ -112,6 +112,14 @@ export const Hero: React.FC = () => {
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </button>
           </motion.div>
+
+          {/* novus.ai badge */}
+          <motion.div variants={itemVariants} className="mt-8 flex items-center gap-2 text-sm text-zinc-500 font-medium">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-100 border border-zinc-200 shadow-sm">
+              <span className="text-[10px]">✨</span>
+            </div>
+            Proudly participating in the <span className="font-semibold text-zinc-900">novus.ai</span> competition
+          </motion.div>
         </motion.div>
 
         {/* Right: Product Mockup */}
