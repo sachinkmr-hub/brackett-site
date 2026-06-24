@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { ClerkSessionBridge } from './components/ClerkSessionBridge';
 import { InviteAcceptPage } from './components/InviteAcceptPage';
 import { LandingPage } from './pages/LandingPage';
@@ -90,6 +91,7 @@ export default function App() {
         </Routes>
         </ErrorBoundary>
       </Suspense>
+      <SpeedInsights />
     </>
   );
 }
