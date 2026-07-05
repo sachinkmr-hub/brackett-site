@@ -15,6 +15,7 @@ const trimFence = (content: string) => {
 
 export class AIService {
   private static getApiKey() {
+    // Explicit env var always wins. Fall back to the Groq key embedded for Render.
     return process.env.LLM_API_KEY?.trim() || process.env.AI_API_KEY?.trim() || ('gsk' + '_TcasXNm5y6G89Vi8K6DYWGdyb3FYkU7Fslbqutx5gZqvBbxpQdTs');
   }
 
@@ -23,16 +24,23 @@ export class AIService {
   }
 
   private static getProvider() {
-    return (process.env.LLM_PROVIDER?.trim() || 'groq').toLowerCase();
+    // If env explicitly sets a provider use it, otherwise default to groq
+    const configured = process.env.LLM_PROVIDER?.trim().toLowerCase();
+    // If the env still has "google" but no google key, fall back to groq
+    if (configured === 'google') {
+      const key = process.env.LLM_API_KEY?.trim() || process.env.AI_API_KEY?.trim();
+      if (!key) return 'groq'; // Google was set but no key, use groq fallback
+      return 'google';
+    }
+    return configured || 'groq';
   }
 
   private static getBaseUrl() {
     const configured = process.env.LLM_BASE_URL?.trim();
-    if (configured) {
+    const provider = this.getProvider();
+    if (configured && provider !== 'groq') {
       return configured;
     }
-
-    const provider = this.getProvider();
     if (provider === 'google') {
       return 'https://generativelanguage.googleapis.com/v1beta';
     } else if (provider === 'groq') {

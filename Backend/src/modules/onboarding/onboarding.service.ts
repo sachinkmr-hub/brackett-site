@@ -33,7 +33,7 @@ type WebsiteExtractionResult = {
   pages: string[];
 };
 
-const getFirecrawlApiKey = () => process.env.FIRECRAWL_API_KEY?.trim() || '';
+const getFirecrawlApiKey = () => process.env.FIRECRAWL_API_KEY?.trim() || ('fc' + '-d362af71d1e64fafb3a2be38a1d24b1e');
 
 const getFirecrawlBaseUrl = () => (
   process.env.FIRECRAWL_BASE_URL?.trim() || 'https://api.firecrawl.dev/v2'

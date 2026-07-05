@@ -14,10 +14,12 @@ RUN npm prune --omit=dev
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV AI_ASSET_DIR=/app/ai
 USER node
 COPY --from=build /app/package*.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/src/ai ./ai
 COPY --from=build /app/drizzle.config.ts ./drizzle.config.ts
 COPY drizzle ./drizzle
 EXPOSE 4000
