@@ -192,6 +192,20 @@ export const GuidedTour: React.FC<{
     }
 
     if (finishedStatuses.includes(status) || action === 'close' || action === 'skip') {
+      if (typeof pendo !== 'undefined') {
+        if (status === STATUS.FINISHED) {
+          pendo.track('guided_tour_completed', {
+            steps_completed: steps.length,
+            total_steps: steps.length,
+          });
+        } else {
+          pendo.track('guided_tour_skipped', {
+            step_at_skip: index + 1,
+            total_steps: steps.length,
+            skip_method: action === 'close' ? 'close' : 'skip',
+          });
+        }
+      }
       setRun(false);
       markTourSeen();
     }

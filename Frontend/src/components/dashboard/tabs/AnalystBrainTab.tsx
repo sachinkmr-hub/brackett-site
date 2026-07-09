@@ -51,6 +51,18 @@ export const AnalystBrainTab: React.FC = () => {
     const payload = await askPrivateAnalyst(trimmed);
     if (payload) {
       setResponse(payload);
+      if (typeof pendo !== 'undefined') {
+        pendo.track('analyst_query_submitted', {
+          query_length: trimmed.length,
+          confidence: payload.confidence,
+          sources_matched_count: payload.sources.length,
+          has_live_context: hasLiveContext,
+          open_loops: payload.summary.openLoops,
+          high_priority_count: payload.summary.highPriority,
+          source_gaps_count: payload.summary.sourceGaps,
+          used_sample_prompt: samplePrompts.includes(trimmed),
+        });
+      }
     }
     setIsSubmitting(false);
   };
