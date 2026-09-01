@@ -4,10 +4,20 @@ const LOCAL_API_BASE_URL = '/api';
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
 if (!configuredApiBaseUrl && import.meta.env.PROD) {
-  console.warn('VITE_API_BASE_URL is not configured for production. Falling back to /api');
+  console.warn(
+    'VITE_API_BASE_URL is not configured for production. Falling back to /api, which only works when the host proxies /api to the backend (see vercel.json).'
+  );
 }
 
-const API_BASE_URL = configuredApiBaseUrl || LOCAL_API_BASE_URL;
+// A trailing slash would produce request paths like `https://api.example.com//auth/login`.
+const API_BASE_URL = (configuredApiBaseUrl || LOCAL_API_BASE_URL).replace(/\/+$/, '');
+
+// A single-page-app host that rewrites every unmatched path to index.html answers
+// API calls with the app shell and a 200, which otherwise looks like a successful
+// but empty response. Name that failure instead of letting it pass silently.
+export const API_HTML_RESPONSE_MESSAGE =
+  `The brackett API at "${API_BASE_URL}" returned a web page instead of JSON. ` +
+  'Set VITE_API_BASE_URL to the backend URL (or proxy /api to the backend) and redeploy.';
 
 type ApiRequestOptions = RequestInit & {
   skipAuth?: boolean;
@@ -33,11 +43,18 @@ export const configureApi = (
 
 let refreshPromise: Promise<string | null> | null = null;
 
-const readPayload = async (response: Response) => {
+export const readPayload = async (response: Response) => {
   const contentType = response.headers.get('content-type') || '';
-  return contentType.includes('application/json')
-    ? await response.json()
-    : await response.text();
+  if (contentType.includes('application/json')) {
+    return await response.json();
+  }
+
+  const body = await response.text();
+  if (contentType.includes('text/html') || /^\s*<(!doctype|html)/i.test(body)) {
+    throw new Error(API_HTML_RESPONSE_MESSAGE);
+  }
+
+  return body;
 };
 
 export const refreshAccessToken = async () => {
@@ -60,7 +77,15 @@ export const refreshAccessToken = async () => {
         window.clearTimeout(timeout);
       }
 
-      const payload = await readPayload(response);
+      let payload: unknown;
+      try {
+        payload = await readPayload(response);
+      } catch (error) {
+        // A refresh that cannot be read is simply "no session"; callers handle that.
+        console.warn('Unable to read the refresh response.', error);
+        return null;
+      }
+
       if (!response.ok || typeof payload !== 'object' || !payload || !('accessToken' in payload)) {
         return null;
       }

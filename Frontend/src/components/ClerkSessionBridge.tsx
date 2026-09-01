@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useAuth, useClerk, useUser } from '@clerk/clerk-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { clearAuthSession, getStoredAuthProvider, persistAuthSession } from '../lib/authSession';
-import { getApiBaseUrl } from '../lib/api';
+import { getApiBaseUrl, readPayload } from '../lib/api';
 import { clearClerkAuthHandoffRequest, getClerkRedirectTarget, isClerkAuthHandoffRequest } from '../lib/clerk';
 
 const SYNC_FAILURE_TITLE = 'Google sign-in needs one more step';
@@ -69,13 +69,19 @@ export const ClerkSessionBridge: React.FC = () => {
           body: JSON.stringify(workspaceName ? { workspaceName } : {}),
         });
 
-        const payload = await response.json().catch(() => ({}));
+        const parsed = await readPayload(response);
+        const payload: Record<string, any> = typeof parsed === 'object' && parsed ? parsed : {};
+
         if (!response.ok) {
           const message =
-            typeof payload === 'object' && payload && 'message' in payload
-              ? String((payload as { message: unknown }).message)
-              : 'Unable to finish Google sign-in.';
+            'message' in payload ? String(payload.message) : 'Unable to finish Google sign-in.';
           throw new Error(message);
+        }
+
+        // Without an access token the app stays signed out and bounces straight
+        // back to the landing page, so treat it as a failed handoff.
+        if (!payload.accessToken) {
+          throw new Error('brackett did not return a session token for your Google account.');
         }
 
         if (!isCancelled) {

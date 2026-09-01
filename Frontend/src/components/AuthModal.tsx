@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { BrackettLogo } from './BrackettLogo';
 import { COLORS } from '../theme/tokens';
 import { persistAuthSession } from '../lib/authSession';
-import { getApiBaseUrl } from '../lib/api';
+import { getApiBaseUrl, readPayload } from '../lib/api';
 import { getClerkBridgeUrl, getClerkCallbackUrl, isClerkFrontendConfigured } from '../lib/clerk';
 import { useNavigate } from 'react-router-dom';
 
@@ -174,14 +174,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         ),
       });
 
-      const payload = await response.json().catch(() => ({}));
+      let payload: Record<string, any>;
+      try {
+        const parsed = await readPayload(response);
+        payload = typeof parsed === 'object' && parsed ? parsed : {};
+      } catch (parseError) {
+        // readPayload throws when the API URL resolves to the SPA shell instead
+        // of the backend, which used to look like a silent, token-less success.
+        setStatus({
+          type: 'error',
+          message: parseError instanceof Error ? parseError.message : 'The brackett API returned an unreadable response.',
+        });
+        return;
+      }
+
       if (!response.ok) {
         setFriendlyAuthStatus(
           response.status,
-          typeof payload === 'object' && payload && 'message' in payload
-            ? String((payload as { message: unknown }).message)
-            : 'Authentication failed'
+          'message' in payload ? String(payload.message) : 'Authentication failed'
         );
+        return;
+      }
+
+      if (!payload.accessToken) {
+        setStatus({
+          type: 'error',
+          message: 'brackett signed you in but did not return a session token, so the workspace cannot open. Please try again or contact support.',
+        });
         return;
       }
 
@@ -191,15 +210,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         message: payload.message || (isLogin ? 'Signed in successfully.' : 'Workspace created successfully.'),
       });
 
-      if (payload.accessToken) {
-        setTimeout(() => {
-          onClose();
-          // Use client-side navigation to preserve the React tree and in-memory
-          // accessToken. window.location.assign() causes a full page reload,
-          // wiping the token before AuthProvider can use it.
-          navigate('/dashboard');
-        }, 700);
-      }
+      setTimeout(() => {
+        onClose();
+        // Use client-side navigation to preserve the React tree and in-memory
+        // accessToken. window.location.assign() causes a full page reload,
+        // wiping the token before AuthProvider can use it.
+        navigate('/dashboard');
+      }, 700);
     } catch (error) {
       setStatus({
         type: 'error',

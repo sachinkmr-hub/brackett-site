@@ -1,3 +1,5 @@
+import { trackWithPendo } from './analytics';
+
 export type AuthPayload = {
   accessToken?: string;
   user?: {
@@ -31,7 +33,7 @@ export const persistAuthSession = (payload: AuthPayload) => {
   }
 
   if (payload.user?.id) {
-    pendo.identify({
+    trackWithPendo('identify', {
       visitor: {
         id: payload.user.id,
         email: payload.user.email,
@@ -54,7 +56,7 @@ export const clearAuthSession = () => {
   localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
   localStorage.removeItem(LEGACY_WORKSPACE_ID_KEY);
   localStorage.removeItem(LEGACY_AUTH_PROVIDER_KEY);
-  pendo.clearSession();
+  trackWithPendo('clearSession');
   window.dispatchEvent(new CustomEvent('brakett-signed-out'));
 };
 
