@@ -16,7 +16,11 @@ interface AuthModalProps {
 
 type AuthStatus = { type: 'success' | 'error' | 'info'; message: string } | null;
 
-const AUTH_REQUEST_TIMEOUT_MS = 15000;
+// The backend sleeps on Render's free plan, and the request that wakes it can
+// take most of a minute. Allow for that rather than aborting a sign-in that
+// would have succeeded, and tell the user what the wait is for.
+const AUTH_REQUEST_TIMEOUT_MS = 75000;
+const COLD_START_NOTICE_DELAY_MS = 6000;
 
 const fetchWithTimeout = async (url: string, options: RequestInit) => {
   const controller = new AbortController();
@@ -149,7 +153,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
 
   const getNetworkAuthMessage = (error: unknown) => {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      return 'brackett API did not respond in time. Check that the backend is running, then try again.';
+      return 'brackett API did not respond in time. The server may still be waking up — try again in a moment.';
     }
 
     return error instanceof Error && error.message
@@ -162,6 +166,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
     setStatus(null);
     setIsSubmitting(true);
 
+    const coldStartNotice = window.setTimeout(() => {
+      setStatus({
+        type: 'info',
+        message: 'Waking up the brackett server — the first request after a quiet spell can take up to a minute.',
+      });
+    }, COLD_START_NOTICE_DELAY_MS);
+
     try {
       const response = await fetchWithTimeout(`${apiBaseUrl}/auth/${isLogin ? 'login' : 'signup'}`, {
         method: 'POST',
@@ -173,6 +184,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
             : { email, password, name, workspaceName }
         ),
       });
+
+      window.clearTimeout(coldStartNotice);
 
       let payload: Record<string, any>;
       try {
@@ -223,6 +236,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         message: getNetworkAuthMessage(error),
       });
     } finally {
+      window.clearTimeout(coldStartNotice);
       setIsSubmitting(false);
     }
   };

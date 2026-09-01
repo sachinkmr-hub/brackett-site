@@ -41,7 +41,19 @@ export const configureApi = (
   handleTokenRefresh = tokenRefreshHandler;
 };
 
-let refreshPromise: Promise<string | null> | null = null;
+// The backend runs on a Render free plan, which sleeps after ~15 minutes idle.
+// The request that wakes it can take the better part of a minute, so a refresh
+// that times out means "server asleep", not "no session" — the two need to be
+// told apart or every returning visitor gets signed out by a cold start.
+const REFRESH_TIMEOUT_MS = 8000;
+export const COLD_START_TIMEOUT_MS = 75000;
+
+export type RefreshOutcome =
+  | { status: 'authenticated'; accessToken: string }
+  | { status: 'unauthenticated' }
+  | { status: 'unreachable' };
+
+let refreshPromise: Promise<RefreshOutcome> | null = null;
 
 export const readPayload = async (response: Response) => {
   const contentType = response.headers.get('content-type') || '';
@@ -57,11 +69,11 @@ export const readPayload = async (response: Response) => {
   return body;
 };
 
-export const refreshAccessToken = async () => {
+export const refreshSession = async (timeoutMs = REFRESH_TIMEOUT_MS): Promise<RefreshOutcome> => {
   if (!refreshPromise) {
-    refreshPromise = (async () => {
+    refreshPromise = (async (): Promise<RefreshOutcome> => {
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 4500);
+      const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
       let response: Response;
 
       try {
@@ -72,7 +84,8 @@ export const refreshAccessToken = async () => {
           signal: controller.signal,
         });
       } catch {
-        return null;
+        // Aborted or network failure — the server may just be waking up.
+        return { status: 'unreachable' };
       } finally {
         window.clearTimeout(timeout);
       }
@@ -83,26 +96,31 @@ export const refreshAccessToken = async () => {
       } catch (error) {
         // A refresh that cannot be read is simply "no session"; callers handle that.
         console.warn('Unable to read the refresh response.', error);
-        return null;
+        return { status: 'unauthenticated' };
       }
 
       if (!response.ok || typeof payload !== 'object' || !payload || !('accessToken' in payload)) {
-        return null;
+        return { status: 'unauthenticated' };
       }
 
       const accessToken = String((payload as { accessToken: unknown }).accessToken || '');
       if (!accessToken) {
-        return null;
+        return { status: 'unauthenticated' };
       }
 
       handleTokenRefresh(accessToken);
-      return accessToken;
+      return { status: 'authenticated', accessToken };
     })().finally(() => {
       refreshPromise = null;
     });
   }
 
   return refreshPromise;
+};
+
+export const refreshAccessToken = async (timeoutMs?: number) => {
+  const outcome = await refreshSession(timeoutMs);
+  return outcome.status === 'authenticated' ? outcome.accessToken : null;
 };
 
 export const apiFetch = async (path: string, options: ApiRequestOptions = {}): Promise<Response> => {

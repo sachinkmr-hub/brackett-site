@@ -23,6 +23,14 @@ vi.mock('../../lib/api', async () => {
       mockSessionMock.capturedTokenRefreshHandler = refresh;
       return actual.configureApi(getter, fail, refresh);
     },
+    refreshSession: async () => {
+      const token = mockSessionMock.token;
+      if (token && mockSessionMock.capturedTokenRefreshHandler) {
+        mockSessionMock.capturedTokenRefreshHandler(token);
+        return { status: 'authenticated', accessToken: token };
+      }
+      return { status: 'unauthenticated' };
+    },
     refreshAccessToken: async () => {
       console.log('MOCK refreshAccessToken called! token:', mockSessionMock.token, 'hasHandler:', !!mockSessionMock.capturedTokenRefreshHandler);
       const token = mockSessionMock.token;

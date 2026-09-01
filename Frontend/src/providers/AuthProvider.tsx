@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { configureApi, getApiBaseUrl, refreshAccessToken } from '../lib/api';
+import { COLD_START_TIMEOUT_MS, configureApi, getApiBaseUrl, refreshSession } from '../lib/api';
 import { LEGACY_ACCESS_TOKEN_KEY, clearAuthSession, type AuthPayload } from '../lib/authSession';
 import { useModal } from './ModalProvider';
 
@@ -64,11 +64,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
     }
 
-    void refreshAccessToken().then((token) => {
-      if (!token && !storedToken && isMounted && !tokenRef.current) {
+    const restoreSession = async () => {
+      let outcome = await refreshSession();
+
+      // A sleeping backend is not a missing session. Let the UI render on the
+      // short attempt, then wait the cold start out in the background instead
+      // of signing a returning visitor out.
+      if (outcome.status === 'unreachable') {
+        if (isMounted) setIsLoadingSession(false);
+        outcome = await refreshSession(COLD_START_TIMEOUT_MS);
+      }
+
+      if (outcome.status === 'unauthenticated' && !storedToken && isMounted && !tokenRef.current) {
         applyAccessToken(null);
       }
-    }).catch(() => undefined).finally(() => {
+    };
+
+    void restoreSession().catch(() => undefined).finally(() => {
       if (isMounted) setIsLoadingSession(false);
     });
 
