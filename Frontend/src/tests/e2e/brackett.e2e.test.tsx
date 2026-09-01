@@ -23,6 +23,14 @@ vi.mock('../../lib/api', async () => {
       mockSessionMock.capturedTokenRefreshHandler = refresh;
       return actual.configureApi(getter, fail, refresh);
     },
+    refreshSession: async () => {
+      const token = mockSessionMock.token;
+      if (token && mockSessionMock.capturedTokenRefreshHandler) {
+        mockSessionMock.capturedTokenRefreshHandler(token);
+        return { status: 'authenticated', accessToken: token };
+      }
+      return { status: 'unauthenticated' };
+    },
     refreshAccessToken: async () => {
       console.log('MOCK refreshAccessToken called! token:', mockSessionMock.token, 'hasHandler:', !!mockSessionMock.capturedTokenRefreshHandler);
       const token = mockSessionMock.token;
@@ -514,6 +522,14 @@ const renderAppAndWait = async (initialEntries = ['/']) => {
   return rendered;
 };
 
+// Signing in enters the dashboard through client-side routing, not a full page
+// load, so assert on the rendered dashboard instead of window.location.assign.
+const expectDashboardEntered = async () => {
+  await waitFor(() => {
+    expect(screen.getAllByRole('button', { name: /Sign out/i }).length).toBeGreaterThan(0);
+  }, { timeout: 10000 });
+};
+
 // Helper to seed localStorage auth state so AuthProvider recognises the session
 const seedAuthSession = (token = 'fresh-token') => {
   localStorage.setItem('brakett_access_token', token);
@@ -654,9 +670,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
     fireEvent.click(submitBtn);
 
-    await waitFor(() => {
-      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining('/dashboard'));
-    });
+    await expectDashboardEntered();
   });
 
   it('13. Local Signup Success', async () => { /* timeout added */
@@ -677,9 +691,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
 
     fireEvent.click(submitBtn);
 
-    await waitFor(() => {
-      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining('/dashboard'));
-    });
+    await expectDashboardEntered();
   });
 
   it('14. Redirect to Dashboard', async () => { /* timeout added */
@@ -694,8 +706,8 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await waitFor(() => {
       expect(localStorage.getItem('brakett_auth_provider')).toBe('local');
       expect(localStorage.getItem('brakett_workspace_id')).toBe('workspace-1');
-      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining('/dashboard'));
     });
+    await expectDashboardEntered();
   });
 
   it('15. Logout Flow', async () => { /* timeout added */
@@ -729,6 +741,57 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     await waitFor(() => {
       expect(screen.getByText(/We couldn't find a matching account yet/i)).toBeInTheDocument();
     });
+  });
+
+  it('16b. Surfaces an error when the API URL serves the SPA shell instead of JSON', async () => {
+    // A misconfigured VITE_API_BASE_URL resolves /auth/login to the single-page-app
+    // rewrite, which answers with index.html and a 200. That must not read as a
+    // successful sign-in that silently leaves the user on the landing page.
+    fetchMock.mockImplementation(async (url: string, options: any = {}) => {
+      if (url.toString().includes('/auth/login')) {
+        return new Response('<!doctype html><html><body><div id="root"></div></body></html>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        });
+      }
+      return defaultFetchImpl(url, options);
+    });
+
+    await renderAppAndWait(['/']);
+    fireEvent.click(screen.getByRole('button', { name: /Sign in/i }));
+
+    fireEvent.change(screen.getByLabelText(/Email address/i), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: 'password123' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Sign in' }).find(btn => btn.getAttribute('type') === 'submit')!);
+
+    await waitFor(() => {
+      expect(screen.getByText(/returned a web page instead of JSON/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/Signed in successfully/i)).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('button', { name: /Sign out/i })).toHaveLength(0);
+  });
+
+  it('16c. Surfaces an error when a 2xx sign-in response carries no access token', async () => {
+    fetchMock.mockImplementation(async (url: string, options: any = {}) => {
+      if (url.toString().includes('/auth/login')) {
+        return jsonResponse({ user: { authProvider: 'local' } });
+      }
+      return defaultFetchImpl(url, options);
+    });
+
+    await renderAppAndWait(['/']);
+    fireEvent.click(screen.getByRole('button', { name: /Sign in/i }));
+
+    fireEvent.change(screen.getByLabelText(/Email address/i), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: 'password123' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Sign in' }).find(btn => btn.getAttribute('type') === 'submit')!);
+
+    await waitFor(() => {
+      expect(screen.getByText(/did not return a session token/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryAllByRole('button', { name: /Sign out/i })).toHaveLength(0);
   });
 
   it('17. Signup Password Too Short', async () => { /* timeout added */
@@ -1226,9 +1289,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: 'longenoughpass' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Create workspace' }).find(btn => btn.getAttribute('type') === 'submit')!);
 
-    await waitFor(() => {
-      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining('/dashboard'));
-    });
+    await expectDashboardEntered();
   });
 
   it('44. Invite acceptance auth transition', async () => { /* timeout added */
@@ -1257,9 +1318,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: 'supersecret123' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Create workspace' }).find(btn => btn.getAttribute('type') === 'submit')!);
 
-    await waitFor(() => {
-      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining('/dashboard'));
-    });
+    await expectDashboardEntered();
 
     // Reset session states for dashboard rendering
     cleanup();

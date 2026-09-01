@@ -7,10 +7,11 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { getClerkPublishableKey, isClerkFrontendConfigured } from './lib/clerk.ts';
 import { applySpaPathRedirect, getAppBasePath } from './lib/routing.ts';
+import { trackWithPendo } from './lib/analytics.ts';
 import { COLORS } from './theme/tokens';
 import './index.css';
 
-pendo.initialize({ visitor: { id: '' } });
+trackWithPendo('initialize', { visitor: { id: '' } });
 
 const clerkPublishableKey = getClerkPublishableKey();
 applySpaPathRedirect();

@@ -4,10 +4,20 @@ const LOCAL_API_BASE_URL = '/api';
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
 if (!configuredApiBaseUrl && import.meta.env.PROD) {
-  console.warn('VITE_API_BASE_URL is not configured for production. Falling back to /api');
+  console.warn(
+    'VITE_API_BASE_URL is not configured for production. Falling back to /api, which only works when the host proxies /api to the backend (see vercel.json).'
+  );
 }
 
-const API_BASE_URL = configuredApiBaseUrl || LOCAL_API_BASE_URL;
+// A trailing slash would produce request paths like `https://api.example.com//auth/login`.
+const API_BASE_URL = (configuredApiBaseUrl || LOCAL_API_BASE_URL).replace(/\/+$/, '');
+
+// A single-page-app host that rewrites every unmatched path to index.html answers
+// API calls with the app shell and a 200, which otherwise looks like a successful
+// but empty response. Name that failure instead of letting it pass silently.
+export const API_HTML_RESPONSE_MESSAGE =
+  `The brackett API at "${API_BASE_URL}" returned a web page instead of JSON. ` +
+  'Set VITE_API_BASE_URL to the backend URL (or proxy /api to the backend) and redeploy.';
 
 type ApiRequestOptions = RequestInit & {
   skipAuth?: boolean;
@@ -31,20 +41,39 @@ export const configureApi = (
   handleTokenRefresh = tokenRefreshHandler;
 };
 
-let refreshPromise: Promise<string | null> | null = null;
+// The backend runs on a Render free plan, which sleeps after ~15 minutes idle.
+// The request that wakes it can take the better part of a minute, so a refresh
+// that times out means "server asleep", not "no session" — the two need to be
+// told apart or every returning visitor gets signed out by a cold start.
+const REFRESH_TIMEOUT_MS = 8000;
+export const COLD_START_TIMEOUT_MS = 75000;
 
-const readPayload = async (response: Response) => {
+export type RefreshOutcome =
+  | { status: 'authenticated'; accessToken: string }
+  | { status: 'unauthenticated' }
+  | { status: 'unreachable' };
+
+let refreshPromise: Promise<RefreshOutcome> | null = null;
+
+export const readPayload = async (response: Response) => {
   const contentType = response.headers.get('content-type') || '';
-  return contentType.includes('application/json')
-    ? await response.json()
-    : await response.text();
+  if (contentType.includes('application/json')) {
+    return await response.json();
+  }
+
+  const body = await response.text();
+  if (contentType.includes('text/html') || /^\s*<(!doctype|html)/i.test(body)) {
+    throw new Error(API_HTML_RESPONSE_MESSAGE);
+  }
+
+  return body;
 };
 
-export const refreshAccessToken = async () => {
+export const refreshSession = async (timeoutMs = REFRESH_TIMEOUT_MS): Promise<RefreshOutcome> => {
   if (!refreshPromise) {
-    refreshPromise = (async () => {
+    refreshPromise = (async (): Promise<RefreshOutcome> => {
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 4500);
+      const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
       let response: Response;
 
       try {
@@ -55,29 +84,43 @@ export const refreshAccessToken = async () => {
           signal: controller.signal,
         });
       } catch {
-        return null;
+        // Aborted or network failure — the server may just be waking up.
+        return { status: 'unreachable' };
       } finally {
         window.clearTimeout(timeout);
       }
 
-      const payload = await readPayload(response);
+      let payload: unknown;
+      try {
+        payload = await readPayload(response);
+      } catch (error) {
+        // A refresh that cannot be read is simply "no session"; callers handle that.
+        console.warn('Unable to read the refresh response.', error);
+        return { status: 'unauthenticated' };
+      }
+
       if (!response.ok || typeof payload !== 'object' || !payload || !('accessToken' in payload)) {
-        return null;
+        return { status: 'unauthenticated' };
       }
 
       const accessToken = String((payload as { accessToken: unknown }).accessToken || '');
       if (!accessToken) {
-        return null;
+        return { status: 'unauthenticated' };
       }
 
       handleTokenRefresh(accessToken);
-      return accessToken;
+      return { status: 'authenticated', accessToken };
     })().finally(() => {
       refreshPromise = null;
     });
   }
 
   return refreshPromise;
+};
+
+export const refreshAccessToken = async (timeoutMs?: number) => {
+  const outcome = await refreshSession(timeoutMs);
+  return outcome.status === 'authenticated' ? outcome.accessToken : null;
 };
 
 export const apiFetch = async (path: string, options: ApiRequestOptions = {}): Promise<Response> => {
