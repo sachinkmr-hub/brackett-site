@@ -231,6 +231,11 @@ Also sets `refreshToken` as an HttpOnly cookie.
 
 Uses the `refreshToken` HttpOnly cookie to rotate the refresh token and issue a new access token.
 
+Returns `401 UNAUTHORIZED` for a missing, invalid, or expired refresh token.
+Infrastructure failures return `503 SERVICE_UNAVAILABLE` without clearing the
+cookie. Clients should preserve their session on temporary failures and allow
+retrying; only an explicit authentication rejection should trigger sign-out.
+
 Response:
 
 ```json

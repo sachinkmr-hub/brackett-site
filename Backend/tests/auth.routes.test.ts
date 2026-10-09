@@ -4,6 +4,7 @@ import express from 'express';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import authRoutes from '../src/modules/auth/auth.routes.js';
 import { getErrorMessage } from '../src/utils/errors.js';
+import { InvalidRefreshTokenError } from '../src/modules/auth/auth.errors.js';
 
 const authServiceMock = vi.hoisted(() => ({
   signup: vi.fn(),
@@ -172,5 +173,31 @@ describe('auth routes', () => {
 
     expect(response.body.code).toBe('INTERNAL_ERROR');
     expect(response.body.message).toMatch(/too large/i);
+  });
+
+  it('reports a refresh infrastructure failure as unavailable, not invalid credentials', async () => {
+    authServiceMock.refreshSession.mockRejectedValue(new Error('Database connection failed'));
+
+    const response = await request(makeApp())
+      .post('/auth/refresh')
+      .set('Cookie', 'refreshToken=existing-token')
+      .send({})
+      .expect(503);
+
+    expect(response.body.code).toBe('SERVICE_UNAVAILABLE');
+    expect(response.body.message).not.toContain('Database');
+    expect(response.headers['set-cookie']).toBeUndefined();
+  });
+
+  it('still rejects an invalid or expired refresh token', async () => {
+    authServiceMock.refreshSession.mockRejectedValue(new InvalidRefreshTokenError());
+
+    const response = await request(makeApp())
+      .post('/auth/refresh')
+      .set('Cookie', 'refreshToken=expired-token')
+      .send({})
+      .expect(401);
+
+    expect(response.body.code).toBe('UNAUTHORIZED');
   });
 });

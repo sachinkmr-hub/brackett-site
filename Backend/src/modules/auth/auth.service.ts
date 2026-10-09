@@ -3,6 +3,7 @@ import { users, workspaces, workspaceMembers, refreshTokens, boards } from '../.
 import { eq, and, gt, isNull } from 'drizzle-orm';
 import { generateRefreshToken, hashPassword, hashToken, verifyPassword } from '../../utils/hash.js';
 import { generateAccessToken } from '../../utils/jwt.js';
+import { InvalidRefreshTokenError } from './auth.errors.js';
 
 type SignupData = {
   email: string;
@@ -322,7 +323,7 @@ export class AuthService {
         .returning();
 
       if (!session) {
-        throw new Error('Invalid or expired refresh token');
+        throw new InvalidRefreshTokenError();
       }
 
       const nextRawRefreshToken = generateRefreshToken();

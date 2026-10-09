@@ -3,6 +3,7 @@ import { clerkClient, getAuth } from '@clerk/express';
 import { z } from 'zod';
 import { isClerkConfigured } from '../../config/clerk.js';
 import { AuthService } from './auth.service.js';
+import { InvalidRefreshTokenError } from './auth.errors.js';
 import type { AuthenticatedUser, PublicUser } from '../../types/auth.js';
 import { getErrorMessage } from '../../utils/errors.js';
 
@@ -194,7 +195,16 @@ export class AuthController {
 
       res.json({ accessToken });
     } catch (error: unknown) {
-      res.status(401).json({ code: 'UNAUTHORIZED', message: getErrorMessage(error) });
+      if (error instanceof InvalidRefreshTokenError) {
+        return res.status(401).json({ code: 'UNAUTHORIZED', message: error.message });
+      }
+
+      // A database/signing outage does not invalidate the caller's session.
+      req.log?.error({ err: error }, 'Session refresh failed');
+      res.status(503).json({
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Session refresh is temporarily unavailable. Please try again in a moment.',
+      });
     }
   }
 
