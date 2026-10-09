@@ -90,22 +90,31 @@ export const refreshSession = async (timeoutMs = REFRESH_TIMEOUT_MS): Promise<Re
         window.clearTimeout(timeout);
       }
 
+      // Only an explicit authentication rejection proves the session is gone.
+      // Rate limits and gateway/server failures must leave it available to retry.
+      if (response.status === 401) {
+        return { status: 'unauthenticated' };
+      }
+      if (!response.ok) {
+        return { status: 'unreachable' };
+      }
+
       let payload: unknown;
       try {
         payload = await readPayload(response);
       } catch (error) {
-        // A refresh that cannot be read is simply "no session"; callers handle that.
+        // A broken proxy or malformed response says nothing about the cookie.
         console.warn('Unable to read the refresh response.', error);
-        return { status: 'unauthenticated' };
+        return { status: 'unreachable' };
       }
 
-      if (!response.ok || typeof payload !== 'object' || !payload || !('accessToken' in payload)) {
-        return { status: 'unauthenticated' };
+      if (typeof payload !== 'object' || !payload || !('accessToken' in payload)) {
+        return { status: 'unreachable' };
       }
 
-      const accessToken = String((payload as { accessToken: unknown }).accessToken || '');
-      if (!accessToken) {
-        return { status: 'unauthenticated' };
+      const accessToken = payload.accessToken;
+      if (typeof accessToken !== 'string' || !accessToken.trim()) {
+        return { status: 'unreachable' };
       }
 
       handleTokenRefresh(accessToken);
@@ -150,17 +159,23 @@ export const apiFetch = async (path: string, options: ApiRequestOptions = {}): P
   let response = await sendRequest();
   if (!response.ok) {
     if (!options.skipAuth && response.status === 401) {
-      const refreshedToken = await refreshAccessToken();
-      if (refreshedToken) {
-        response = await sendRequest(refreshedToken);
+      const outcome = await refreshSession();
+      if (outcome.status === 'unreachable') {
+        throw new Error('The brackett server is temporarily unavailable. Please try again in a moment.');
+      }
+
+      if (outcome.status === 'authenticated') {
+        response = await sendRequest(outcome.accessToken);
         if (response.ok) {
           return response;
         }
       }
 
-      clearAuthSession();
-      handleAuthFailure();
-      throw new Error('Your session is no longer active. Please sign in again.');
+      if (outcome.status === 'unauthenticated' || response.status === 401) {
+        clearAuthSession();
+        handleAuthFailure();
+        throw new Error('Your session is no longer active. Please sign in again.');
+      }
     }
 
     const payload = await readPayload(response);
