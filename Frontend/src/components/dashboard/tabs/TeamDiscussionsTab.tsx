@@ -67,6 +67,16 @@ export const TeamDiscussionsTab: React.FC = () => {
       boardId: form.boardId || undefined,
     });
     if (didSubmit) {
+      if (typeof pendo !== 'undefined') {
+        pendo.track('question_created', {
+          priority: form.priority,
+          has_source_url: Boolean(form.sourceUrl.trim()),
+          has_source_label: Boolean(form.sourceLabel.trim()),
+          has_board: Boolean(form.boardId),
+          has_description: Boolean(form.longDescription.trim()),
+          board_id: form.boardId || '',
+        });
+      }
       setForm({
         title: '',
         longDescription: '',

@@ -15,6 +15,15 @@ export const OnboardingFlow: React.FC = () => {
   const handleFinish = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+
+    if (typeof pendo !== 'undefined') {
+      pendo.track('onboarding_flow_completed', {
+        onboarding_path: path,
+        has_url: Boolean(url.trim()),
+        has_idea: Boolean(idea.trim()),
+      });
+    }
+
     // Simulate saving context for the AI backend
     setTimeout(() => {
       window.location.assign(buildAppUrl('/dashboard').toString());
@@ -52,14 +61,24 @@ export const OnboardingFlow: React.FC = () => {
                 className="space-y-4"
               >
                 <button
-                  onClick={() => setPath('existing')}
+                  onClick={() => {
+                    setPath('existing');
+                    if (typeof pendo !== 'undefined') {
+                      pendo.track('onboarding_path_selected', { onboarding_path: 'existing' });
+                    }
+                  }}
                   className="motion-rise w-full rounded-xl border border-zinc-200 bg-white p-6 text-left shadow-sm transition-all hover:border-zinc-300"
                 >
                   <h3 className="font-semibold text-zinc-950">I already have a live product</h3>
                   <p className="mt-1 text-sm text-zinc-500">Connect your website, revenue, and traffic signals.</p>
                 </button>
                 <button
-                  onClick={() => setPath('new')}
+                  onClick={() => {
+                    setPath('new');
+                    if (typeof pendo !== 'undefined') {
+                      pendo.track('onboarding_path_selected', { onboarding_path: 'new' });
+                    }
+                  }}
                   className="motion-rise w-full rounded-xl border border-zinc-200 bg-white p-6 text-left shadow-sm transition-all hover:border-zinc-300"
                 >
                   <h3 className="font-semibold text-zinc-950">I'm just starting out</h3>

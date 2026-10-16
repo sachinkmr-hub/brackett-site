@@ -18,6 +18,12 @@ export const IntegrationsTab: React.FC = () => {
     event.preventDefault();
     const didCreate = await createBoard(boardForm);
     if (didCreate) {
+      if (typeof pendo !== 'undefined') {
+        pendo.track('board_created', {
+          board_name: boardForm.name,
+          has_description: Boolean(boardForm.description.trim()),
+        });
+      }
       setBoardForm({ name: '', description: '' });
     }
   };
