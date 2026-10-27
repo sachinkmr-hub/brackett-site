@@ -182,6 +182,10 @@ export type AnnouncementSendResponse = {
 };
 
 export type PrivateAnalystResponse = {
+  execution?: {
+    method: string; intent: string; modelCalls: number; modelCostUsd: number; latencyMs: number;
+    limitations: string[];
+  };
   query: string;
   answer: string;
   confidence: 'workspace_grounded' | 'needs_live_source' | string;

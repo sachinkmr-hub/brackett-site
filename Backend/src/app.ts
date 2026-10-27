@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { sql } from 'drizzle-orm';
+import { AIService } from './modules/ai/ai.service.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import workspacesRoutes from './modules/workspaces/workspaces.routes.js';
 import { db } from './db/index.js';
@@ -93,10 +94,7 @@ app.get('/system/readiness', async (req, res) => {
       : error instanceof Error ? error.message : 'Database connection failed.';
   }
 
-  const hasRealAiKey = Boolean(
-    process.env.LLM_API_KEY &&
-    process.env.LLM_API_KEY !== 'demo_api_key_replace_me'
-  );
+  const hasRealAiKey = AIService.hasLiveExtractionKey();
   const hasClerkSecret = Boolean(
     isClerkConfigured()
   );
@@ -171,7 +169,9 @@ app.use((err: unknown, req: express.Request, res: express.Response, _next: expre
 
   res.status(status).json({
     code,
-    message: error.message || 'An unexpected error occurred'
+    message: status >= 500 && process.env.NODE_ENV === 'production'
+      ? 'An unexpected error occurred'
+      : error.message || 'An unexpected error occurred'
   });
 });
 

@@ -54,6 +54,11 @@ export type RefreshOutcome =
   | { status: 'unreachable' };
 
 let refreshPromise: Promise<RefreshOutcome> | null = null;
+let sessionGeneration = 0;
+if (typeof window !== 'undefined') {
+  window.addEventListener('brakett-authenticated', () => { sessionGeneration += 1; });
+  window.addEventListener('brakett-signed-out', () => { sessionGeneration += 1; });
+}
 
 export const readPayload = async (response: Response) => {
   const contentType = response.headers.get('content-type') || '';
@@ -71,6 +76,8 @@ export const readPayload = async (response: Response) => {
 
 export const refreshSession = async (timeoutMs = REFRESH_TIMEOUT_MS): Promise<RefreshOutcome> => {
   if (!refreshPromise) {
+    const startingToken = getAccessToken();
+    const startingGeneration = sessionGeneration;
     refreshPromise = (async (): Promise<RefreshOutcome> => {
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -96,7 +103,12 @@ export const refreshSession = async (timeoutMs = REFRESH_TIMEOUT_MS): Promise<Re
       } catch (error) {
         // A refresh that cannot be read is simply "no session"; callers handle that.
         console.warn('Unable to read the refresh response.', error);
-        return { status: 'unauthenticated' };
+        return { status: 'unreachable' };
+      }
+
+      // A server failure is not evidence that the user's session expired.
+      if (!response.ok && response.status !== 401 && response.status !== 403) {
+        return { status: 'unreachable' };
       }
 
       if (!response.ok || typeof payload !== 'object' || !payload || !('accessToken' in payload)) {
@@ -108,6 +120,11 @@ export const refreshSession = async (timeoutMs = REFRESH_TIMEOUT_MS): Promise<Re
         return { status: 'unauthenticated' };
       }
 
+      // A sign-in or sign-out that happened during refresh takes precedence.
+      const currentToken = getAccessToken();
+      if (currentToken !== startingToken || sessionGeneration !== startingGeneration) {
+        return currentToken ? { status: 'authenticated', accessToken: currentToken } : { status: 'unauthenticated' };
+      }
       handleTokenRefresh(accessToken);
       return { status: 'authenticated', accessToken };
     })().finally(() => {
@@ -150,14 +167,26 @@ export const apiFetch = async (path: string, options: ApiRequestOptions = {}): P
   let response = await sendRequest();
   if (!response.ok) {
     if (!options.skipAuth && response.status === 401) {
-      const refreshedToken = await refreshAccessToken();
-      if (refreshedToken) {
-        response = await sendRequest(refreshedToken);
-        if (response.ok) {
-          return response;
+      const originalToken = getAccessToken();
+      const outcome = await refreshSession();
+      if (outcome.status === 'unreachable') {
+        throw new Error('The server could not refresh your session. Please retry when the connection is available.');
+      }
+      if (outcome.status === 'authenticated') {
+        response = await sendRequest(outcome.accessToken);
+        if (response.ok) return response;
+        // Authorization and server errors after a valid refresh are not logout events.
+        if (response.status !== 401) {
+          const retryPayload = await readPayload(response);
+          const message = typeof retryPayload === 'object' && retryPayload && 'message' in retryPayload
+            ? String((retryPayload as { message: unknown }).message) : response.statusText;
+          throw new Error(message || 'Request failed');
         }
       }
-
+      // Do not clear a different session that was established during this request.
+      if (getAccessToken() !== originalToken && outcome.status !== 'authenticated') {
+        throw new Error('The session changed while this request was running. Please retry.');
+      }
       clearAuthSession();
       handleAuthFailure();
       throw new Error('Your session is no longer active. Please sign in again.');

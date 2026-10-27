@@ -88,7 +88,15 @@ export class AuthController {
         accessToken
       });
     } catch (error: unknown) {
-      res.status(401).json({ code: 'UNAUTHORIZED', message: getErrorMessage(error) });
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ code: 'BAD_REQUEST', message: 'Enter a valid email and password.' });
+      }
+      const message = getErrorMessage(error);
+      if (message === 'Invalid credentials' || message === 'User password is not provisioned') {
+        return res.status(401).json({ code: 'UNAUTHORIZED', message: 'Email or password is incorrect, or this account uses Google sign-in.' });
+      }
+      req.log?.error({ err: error }, 'Login failed');
+      res.status(503).json({ code: 'AUTH_UNAVAILABLE', message: 'Sign-in is temporarily unavailable. Please try again shortly.' });
     }
   }
 
@@ -194,7 +202,11 @@ export class AuthController {
 
       res.json({ accessToken });
     } catch (error: unknown) {
-      res.status(401).json({ code: 'UNAUTHORIZED', message: getErrorMessage(error) });
+      if (getErrorMessage(error) === 'Invalid or expired refresh token') {
+        return res.status(401).json({ code: 'UNAUTHORIZED', message: 'Session expired. Please sign in again.' });
+      }
+      req.log?.error({ err: error }, 'Session refresh failed');
+      res.status(503).json({ code: 'AUTH_UNAVAILABLE', message: 'Session service is temporarily unavailable. Please try again shortly.' });
     }
   }
 

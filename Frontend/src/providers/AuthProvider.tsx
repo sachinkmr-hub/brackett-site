@@ -26,6 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const applyAuthPayload = useCallback((payload: AuthPayload) => {
     if (payload.accessToken) {
       applyAccessToken(payload.accessToken);
+      setIsLoadingSession(false);
     }
   }, [applyAccessToken]);
 

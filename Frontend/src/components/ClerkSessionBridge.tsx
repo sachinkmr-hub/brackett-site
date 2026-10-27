@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useAuth, useClerk, useUser } from '@clerk/clerk-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { clearAuthSession, getStoredAuthProvider, persistAuthSession } from '../lib/authSession';
-import { getApiBaseUrl, readPayload } from '../lib/api';
+import { COLD_START_TIMEOUT_MS, getApiBaseUrl, readPayload } from '../lib/api';
 import { clearClerkAuthHandoffRequest, getClerkRedirectTarget, isClerkAuthHandoffRequest } from '../lib/clerk';
 
 const SYNC_FAILURE_TITLE = 'Google sign-in needs one more step';
@@ -50,6 +50,8 @@ export const ClerkSessionBridge: React.FC = () => {
     }
 
     let isCancelled = false;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), COLD_START_TIMEOUT_MS);
 
     const syncSession = async () => {
       try {
@@ -61,6 +63,7 @@ export const ClerkSessionBridge: React.FC = () => {
         const workspaceName = user?.firstName ? `${user.firstName}'s Workspace` : undefined;
         const response = await fetch(`${getApiBaseUrl()}/auth/clerk/session`, {
           method: 'POST',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${clerkToken}`,
@@ -111,10 +114,17 @@ export const ClerkSessionBridge: React.FC = () => {
         window.dispatchEvent(new CustomEvent('show-brackett-alert', {
           detail: {
             title: SYNC_FAILURE_TITLE,
-            message: error instanceof Error ? error.message : 'Unable to finish Google sign-in.',
+            message: error instanceof Error && error.name === 'AbortError'
+              ? 'The sign-in server did not respond in time. Please retry.'
+              : error instanceof Error ? error.message : 'Unable to finish Google sign-in.',
           },
         }));
+        // replaceState alone does not notify React Router; leave the handoff
+        // screen explicitly so a failed exchange cannot trap the user on a spinner.
+        navigate('/', { replace: true });
         window.dispatchEvent(new Event('show-auth-modal'));
+      } finally {
+        window.clearTimeout(timeout);
       }
     };
 
@@ -122,6 +132,8 @@ export const ClerkSessionBridge: React.FC = () => {
 
     return () => {
       isCancelled = true;
+      window.clearTimeout(timeout);
+      controller.abort();
     };
   }, [getToken, isLoaded, isSignedIn, isUserLoaded, location.pathname, navigate, sessionId, user?.firstName]);
 

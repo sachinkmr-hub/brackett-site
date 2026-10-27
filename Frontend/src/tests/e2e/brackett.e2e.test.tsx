@@ -739,7 +739,7 @@ describe('brackett Comprehensive E2E Test Suite', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Sign in' }).find(btn => btn.getAttribute('type') === 'submit')!);
 
     await waitFor(() => {
-      expect(screen.getByText(/We couldn't find a matching account yet/i)).toBeInTheDocument();
+      expect(screen.getByText(/Email or password is incorrect/i)).toBeInTheDocument();
     });
   });
 
