@@ -126,6 +126,25 @@ describe('auth routes', () => {
     });
   });
 
+  it('reports invalid credentials without disguising a server failure', async () => {
+    authServiceMock.login.mockRejectedValueOnce(new Error('Invalid credentials'));
+    await request(makeApp()).post('/auth/login')
+      .send({ email: 'founder@brackett.test', password: 'wrong' }).expect(401);
+    authServiceMock.login.mockRejectedValueOnce(new Error('database unreachable'));
+    const response = await request(makeApp()).post('/auth/login')
+      .send({ email: 'founder@brackett.test', password: 'password123' }).expect(503);
+    expect(response.body.message).not.toContain('database unreachable');
+  });
+
+  it('reports a refresh service failure without claiming the session expired', async () => {
+    authServiceMock.refreshSession.mockRejectedValueOnce(new Error('database unreachable'));
+    await request(makeApp()).post('/auth/refresh')
+      .set('Cookie', 'refreshToken=refresh-token-2').send({}).expect(503);
+    authServiceMock.refreshSession.mockRejectedValueOnce(new Error('Invalid or expired refresh token'));
+    await request(makeApp()).post('/auth/refresh')
+      .set('Cookie', 'refreshToken=refresh-token-2').send({}).expect(401);
+  });
+
   it('rejects refresh without a refresh cookie', async () => {
     const response = await request(makeApp())
       .post('/auth/refresh')

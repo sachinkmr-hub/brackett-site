@@ -67,11 +67,11 @@ export const OverviewTab: React.FC<{ setActiveTab: (tab: TabKey) => void }> = ({
 
   const activeQuestions = questions.filter((question) => !closedStatuses.includes(question.status));
   const highPriorityQuestions = activeQuestions.filter((question) => ['critical', 'high'].includes(question.priority || ''));
-  const needsSourceQuestions = activeQuestions.filter((question) => !question.sourceUrl && !question.sourceLabel && !question.sourceExcerpt && !question.board);
+  const needsSourceQuestions = activeQuestions.filter((question) => !question.sourceUrl && !question.sourceExcerpt);
   const pendingInvites = invites.filter((invite) => !invite.acceptedAt && new Date(invite.expiresAt) > new Date());
   const liveSources = integrations.filter((integration) => ['ready', 'connected'].includes(integration.status));
   const totalRecords = analytics?.total ?? questions.length;
-  const sourceBacked = analytics?.sourceBacked ?? questions.filter((question) => question.sourceUrl || question.sourceLabel || question.sourceExcerpt || question.board || question.latestDecision).length;
+  const sourceBacked = analytics?.sourceBacked ?? questions.filter((question) => question.sourceUrl || question.sourceExcerpt).length;
   const sourceCoverage = analytics?.sourceCoverage ?? (totalRecords ? Math.round((sourceBacked / totalRecords) * 100) : 0);
   const answered = analytics?.answered ?? questions.filter((question) => question.status === 'answered').length;
 

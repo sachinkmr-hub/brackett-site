@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { boards, discussionMessages, discussions } from '../../db/schema.js';
+import { boards, discussionMessages, discussions, workspaceActivityEvents } from '../../db/schema.js';
 import { ActivityService } from '../activity/activity.service.js';
 
 type CreateQuestionInput = {
@@ -71,6 +71,12 @@ export class QuestionsService {
       throw new Error('Question title is required');
     }
 
+    if (data.boardId) {
+      const [board] = await db.select({ id: boards.id }).from(boards)
+        .where(and(eq(boards.id, data.boardId), eq(boards.workspaceId, workspaceId))).limit(1);
+      if (!board) throw new Error('Board not found in this workspace');
+    }
+
     const [discussion] = await db.insert(discussions).values({
       workspaceId,
       boardId: data.boardId,
@@ -136,7 +142,7 @@ export class QuestionsService {
       board: boards,
     })
       .from(discussions)
-      .leftJoin(boards, eq(discussions.boardId, boards.id))
+      .leftJoin(boards, and(eq(discussions.boardId, boards.id), eq(boards.workspaceId, workspaceId)))
       .where(and(...conditions))
       .orderBy(desc(discussions.updatedAt));
 
@@ -149,7 +155,7 @@ export class QuestionsService {
       board: boards,
     })
       .from(discussions)
-      .leftJoin(boards, eq(discussions.boardId, boards.id))
+      .leftJoin(boards, and(eq(discussions.boardId, boards.id), eq(boards.workspaceId, workspaceId)))
       .where(and(eq(discussions.workspaceId, workspaceId), eq(discussions.id, questionId)))
       .limit(1);
 
@@ -157,21 +163,17 @@ export class QuestionsService {
       return null;
     }
 
-    const [latestMessage] = await db.select()
-      .from(discussionMessages)
-      .where(eq(discussionMessages.discussionId, questionId))
-      .orderBy(desc(discussionMessages.createdAt))
+    const [latestDecision] = await db.select()
+      .from(workspaceActivityEvents)
+      .where(and(
+        eq(workspaceActivityEvents.workspaceId, workspaceId),
+        eq(workspaceActivityEvents.targetId, questionId),
+        eq(workspaceActivityEvents.type, 'decision_logged')
+      ))
+      .orderBy(desc(workspaceActivityEvents.createdAt))
       .limit(1);
 
-    return toQuestion(
-      row.discussion,
-      row.board,
-      latestMessage
-        ? {
-            decisionText: latestMessage.content,
-          }
-        : null
-    );
+    return toQuestion(row.discussion, row.board, latestDecision?.payload as DecisionInput | null);
   }
 
   static async updateStatus(workspaceId: string, questionId: string, userId: string, status: string) {
@@ -204,36 +206,25 @@ export class QuestionsService {
       throw new Error('Decision text is required');
     }
 
-    const [discussion] = await db.update(discussions)
-      .set({ status: 'answered', updatedAt: new Date() })
-      .where(and(eq(discussions.workspaceId, workspaceId), eq(discussions.id, questionId)))
-      .returning();
-
-    if (!discussion) {
-      throw new Error('Question not found');
-    }
-
-    const [message] = await db.insert(discussionMessages).values({
-      discussionId: questionId,
-      userId,
-      content: data.decisionText.trim(),
-    }).returning();
-
-    await ActivityService.record({
-      workspaceId,
-      category: 'decision',
-      type: 'decision_logged',
-      title: 'Decision logged',
-      summary: discussion.title,
-      targetType: 'question',
-      targetId: discussion.id,
-      createdByUserId: userId,
-      payload: {
-        decisionText: data.decisionText,
-        sourceSummary: data.sourceSummary,
-        sourceUrl: data.sourceUrl,
-      },
-    }).catch(() => undefined);
+    // Both writes commit together; a failed insert must leave the question open.
+    const message = await db.transaction(async (tx) => {
+      const [discussion] = await tx.update(discussions)
+        .set({ status: 'answered', updatedAt: new Date() })
+        .where(and(eq(discussions.workspaceId, workspaceId), eq(discussions.id, questionId)))
+        .returning();
+      if (!discussion) throw new Error('Question not found');
+      const [saved] = await tx.insert(discussionMessages).values({
+        discussionId: questionId, userId, content: data.decisionText!.trim(),
+      }).returning();
+      // Store source attribution durably with the decision, in the same transaction.
+      await tx.insert(workspaceActivityEvents).values({
+        workspaceId, category: 'decision', type: 'decision_logged',
+        title: 'Decision logged', summary: discussion.title,
+        targetType: 'question', targetId: questionId, createdByUserId: userId,
+        payload: { decisionText: data.decisionText!.trim(), sourceSummary: data.sourceSummary, sourceUrl: data.sourceUrl },
+      });
+      return saved;
+    });
 
     return {
       id: message.id,

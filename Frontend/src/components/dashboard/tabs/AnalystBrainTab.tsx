@@ -34,7 +34,7 @@ export const AnalystBrainTab: React.FC = () => {
   const liveIntegrations = integrations.filter((integration) => isLiveIntegration(integration.status));
   const hasLiveContext = liveIntegrations.length > 0;
   const activeQuestions = questions.filter((q) => isOpenStatus(q.status));
-  const sourceGaps = activeQuestions.filter((question) => !question.sourceUrl && !question.sourceLabel && !question.sourceExcerpt && !question.board);
+  const sourceGaps = activeQuestions.filter((question) => !question.sourceUrl && !question.sourceExcerpt);
 
   const samplePrompts = useMemo(() => [
     'What is most likely to block the team this week?',
@@ -48,11 +48,12 @@ export const AnalystBrainTab: React.FC = () => {
     if (!trimmed || isSubmitting) return;
 
     setIsSubmitting(true);
-    const payload = await askPrivateAnalyst(trimmed);
-    if (payload) {
-      setResponse(payload);
+    try {
+      const payload = await askPrivateAnalyst(trimmed);
+      setResponse(payload || null);
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   return (
@@ -93,7 +94,7 @@ export const AnalystBrainTab: React.FC = () => {
                   Ask for the shape of the workspace, not a guessed answer.
                 </h3>
                 <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">
-                  The MVP analyst reads brackett records and tells you what is open, sourced, stale, or risky. It stays honest when live source context is missing.
+                  The analyst uses deterministic rules to retrieve workspace records and flag evidence gaps. It does not generate business conclusions or verify source claims.
                 </p>
                 <div className="mt-6 flex flex-wrap justify-center gap-2">
                   {samplePrompts.map((prompt) => (
@@ -114,13 +115,18 @@ export const AnalystBrainTab: React.FC = () => {
               <div className="rounded-2xl border border-slate-200/80 bg-white/78 p-5 shadow-sm">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-700">
-                    {response.confidence === 'workspace_grounded' ? 'Workspace-grounded' : 'Needs live source'}
+                    {response.confidence === 'workspace_grounded' ? 'Evidence attached · verify before deciding' : response.confidence === 'no_matching_records' ? 'No matching evidence' : 'Evidence missing'}
                   </span>
                   <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">
                     {response.sources.length} source match{response.sources.length === 1 ? '' : 'es'}
                   </span>
                 </div>
                 <p className="text-sm leading-7 text-slate-700">{response.answer}</p>
+                {response.execution && <div className="mt-4 border-t border-slate-200 pt-3 text-xs leading-6 text-slate-500">
+                  <p>Method: {response.execution.method} · {response.execution.latencyMs} ms · {response.execution.modelCalls} model calls · ${response.execution.modelCostUsd} model cost</p>
+                  <p>Processing time excludes network and database time. Hosting costs still apply.</p>
+                  {response.execution.limitations.map(limit => <p key={limit}>{limit}</p>)}
+                </div>}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -156,6 +162,7 @@ export const AnalystBrainTab: React.FC = () => {
                           {source.priority || 'medium'}
                         </span>
                       </div>
+                      {source.sourceUrl && /^https?:\/\//i.test(source.sourceUrl) && <a href={source.sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex text-xs font-semibold text-blue-700 underline">Inspect attached source</a>}
                     </div>
                   )) : (
                     <p className="rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm leading-6 text-amber-800">
@@ -207,8 +214,8 @@ export const AnalystBrainTab: React.FC = () => {
               </div>
               <p className="text-sm leading-6 text-slate-600">
                 {hasLiveContext
-                  ? `${liveIntegrations.length} live source${liveIntegrations.length === 1 ? '' : 's'} can contribute to workspace briefs.`
-                  : 'No live source is connected, so responses stay conservative.'}
+                  ? `${liveIntegrations.length} live source${liveIntegrations.length === 1 ? '' : 's'} are connected. Their status does not verify the evidence in a brief.`
+                  : 'No live integration is connected. Manually attached evidence can still be reviewed.'}
               </p>
             </div>
             <div className="rounded-xl border border-slate-200/80 bg-white/74 p-4">
@@ -233,7 +240,7 @@ export const AnalystBrainTab: React.FC = () => {
           </div>
           <div className="space-y-2">
             {(response?.nextActions.length ? response.nextActions : [
-              hasLiveContext ? 'Ask about a specific open decision.' : 'Connect a source before relying on analyst output.',
+              hasLiveContext ? 'Ask about a specific open decision.' : 'Attach evidence to the decision you want to review.',
               sourceGaps.length ? 'Attach source trails to open records.' : 'Keep capturing source details with each new decision.',
               'Invite the person who owns the next decision.',
             ]).map((action) => (

@@ -64,3 +64,44 @@ describe('api client auth refresh', () => {
     expect(onAuthFailure).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('session resilience', () => {
+  it('preserves the current session when the refresh service is unavailable', async () => {
+    const onAuthFailure = vi.fn();
+    configureApi(() => 'existing-token', onAuthFailure);
+    localStorage.setItem('brakett_workspace_id', 'workspace-1');
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ message: 'expired' }, { status: 401 }))
+      .mockResolvedValueOnce(jsonResponse({ message: 'database unavailable' }, { status: 503 })));
+    await expect(apiFetch('/workspaces')).rejects.toThrow('could not refresh');
+    expect(localStorage.getItem('brakett_workspace_id')).toBe('workspace-1');
+    expect(onAuthFailure).not.toHaveBeenCalled();
+  });
+  it('preserves a valid refreshed session when a retried request returns 403', async () => {
+    let token = 'expired';
+    const onAuthFailure = vi.fn();
+    configureApi(() => token, onAuthFailure, next => { token = next; });
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ message: 'expired' }, { status: 401 }))
+      .mockResolvedValueOnce(jsonResponse({ accessToken: 'new-token' }))
+      .mockResolvedValueOnce(jsonResponse({ message: 'Access denied' }, { status: 403 })));
+    await expect(apiFetch('/workspaces')).rejects.toThrow('Access denied');
+    expect(token).toBe('new-token');
+    expect(onAuthFailure).not.toHaveBeenCalled();
+  });
+  it('does not overwrite a newer sign-in with an older refresh response', async () => {
+    let token: string | null = null;
+    let resolveFetch!: (response: Response) => void;
+    const pending = new Promise<Response>(resolve => { resolveFetch = resolve; });
+    const onRefresh = vi.fn((next: string) => { token = next; });
+    configureApi(() => token, vi.fn(), onRefresh);
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(pending));
+    const { refreshSession } = await import('./api');
+    const refresh = refreshSession();
+    token = 'new-login';
+    window.dispatchEvent(new Event('brakett-authenticated'));
+    resolveFetch(jsonResponse({ accessToken: 'old-refresh' }));
+    await expect(refresh).resolves.toEqual({ status: 'authenticated', accessToken: 'new-login' });
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+});

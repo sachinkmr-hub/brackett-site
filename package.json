@@ -2,6 +2,9 @@
   "name": "brackett-root",
   "private": true,
   "scripts": {
-    "build": "cd Frontend && npm ci && npm run build"
+    "build": "cd Frontend && npm ci && npm run build",
+    "check": "npm run check --prefix Backend && npm run lint --prefix Frontend",
+    "test": "npm test --prefix Backend && npm test --prefix Frontend",
+    "demo": "npm run demo --prefix Backend"
   }
 }

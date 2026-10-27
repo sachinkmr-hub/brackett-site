@@ -32,10 +32,11 @@ const deferred = <T,>() => {
 };
 
 const AuthProbe = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoadingSession } = useAuth();
 
   return (
     <div>
+      <span data-testid="loading-state">{String(isLoadingSession)}</span>
       <span data-testid="auth-state">{isAuthenticated ? 'signed-in' : 'signed-out'}</span>
     </div>
   );
@@ -66,6 +67,7 @@ describe('AuthProvider', () => {
     });
 
     expect(screen.getByTestId('auth-state')).toHaveTextContent('signed-in');
+    expect(screen.getByTestId('loading-state')).toHaveTextContent('false');
 
     await act(async () => {
       refresh.resolve({ status: 'unauthenticated' });

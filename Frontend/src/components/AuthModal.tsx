@@ -132,21 +132,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   }, [isOpen, onClose]);
 
   const setFriendlyAuthStatus = (responseStatus: number | undefined, message: string) => {
-    const normalized = message.toLowerCase();
-    const looksLikeMissingUser =
-      responseStatus === 404 ||
-      responseStatus === 401 ||
-      normalized.includes('invalid credentials') ||
-      normalized.includes('user not found') ||
-      normalized.includes("couldn't find") ||
-      normalized.includes('could not find') ||
-      normalized.includes('no account') ||
-      normalized.includes('password is not provisioned');
-
     setStatus({
-      type: looksLikeMissingUser || isLogin ? 'info' : 'error',
-      message: looksLikeMissingUser
-        ? "We couldn't find a matching account yet. Try signing up to create your workspace."
+      type: 'error',
+      message: responseStatus === 401
+        ? 'Email or password is incorrect, or this account uses Google sign-in.'
         : message,
     });
   };
